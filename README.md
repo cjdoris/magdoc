@@ -4,6 +4,8 @@ This is an experimental documentation generator for the [MAGMA computer algebra 
 
 ## Usage
 
+Install the Tatsu package (e.g. `pip install tatsu`) used for parsing.
+
 Run the Python 3 script `magdoc.py` with the source files as arguments. It will output some files in markdown format containing documentation. Example:
 
 ```
@@ -49,7 +51,7 @@ intrinsic Bear() -> []
   {This documents Bear.}
 end intrinsic;
 
-/// This documents Cat and Doc.
+/// This documents both Cat and Dog together.
 intrinsic Cat() -> []
   {Ignored.}
 end intrindic;
@@ -63,3 +65,7 @@ intrinsic Elephant() -> []
   {Elephant is undocumented.}
 end intrinsic;
 ```
+
+## Development
+
+The main parser is in `magmaparser.py` which is generated using the Tatsu python package from `magma.ebnf` with the command `python3 -m tatsu -o magmaparser.py magma.ebnf`.
