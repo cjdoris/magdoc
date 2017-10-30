@@ -1,0 +1,126 @@
+
+@@grammar :: Magma
+@@namechars :: '_'
+# this is a contradition, so we don't process any whitespace
+@@whitespace :: /(?!x)x/
+
+start = stmts $ ;
+
+anychar = /.|\s/ ;
+
+# identifiers
+keyword = '\b_\b'|'adj'|'and'|'assert'|'assert2'|'assert3'|'assigned'|'break'|'by'|'case'|'cat'|'catch'|'clear'|'cmpeq'|'cmpne'|'continue'|'declare'|'default'|'delete'|'diff'|'div'|'do'|'elif'|'else'|'end'|'eq'|'error'|'eval'|'exists'|'exit'|'false'|'for'|'forall'|'forward'|'fprintf'|'freeze'|'function'|'ge'|'gt'|'if'|'iload'|'import'|'in'|'intrinsic'|'is'|'join'|'le'|'load'|'local'|'lt'|'meet'|'mod'|'ne'|'not'|'notadj'|'notin'|'notsubset'|'or'|'print'|'printf'|'procedure'|'quit'|'random'|'read'|'readi'|'rep'|'repeat'|'require'|'requirege'|'requirerange'|'restore'|'return'|'save'|'sdiff'|'select'|'subset'|'then'|'time'|'to'|'true'|'try'|'until'|'vprint'|'vprintf'|'vtime'|'when'|'where'|'while'|'xor' ;
+normal_ident = value:/\b(?!(_|adj|and|assert|assert2|assert3|assigned|break|by|case|cat|catch|clear|cmpeq|cmpne|continue|declare|default|delete|diff|div|do|elif|else|end|eq|error|eval|exists|exit|false|for|forall|forward|fprintf|freeze|function|ge|gt|if|iload|import|in|intrinsic|is|join|le|load|local|lt|meet|mod|ne|not|notadj|notin|notsubset|or|print|printf|procedure|quit|random|read|readi|rep|repeat|require|requirege|requirerange|restore|return|save|sdiff|select|subset|then|time|to|true|try|until|vprint|vprintf|vtime|when|where|while|xor)\b)[A-Za-z_][A-Za-z0-9_]*\b/ ;
+# normal_ident = !keyword value:/[A-Za-z_][A-Za-z0-9_]*/ ;
+quoted_ident = "'" value:/[^']*/ "'" ;
+ident = normal_ident | quoted_ident ;
+idents = ( {sp} ',' {sp} ).{ ident };
+
+# space
+block_comment = '/*' ~ chars:{ !'*/' anychar } '*/' ;
+line_comment = '//' ~ text:/.*?$/ ;
+whitespace = space:/\s+/ ;
+sp = line_comment | block_comment | whitespace ;
+
+# literals
+#string_char = '\' value:anychar type:`escape` | !'"' !'\' value:anychar type:`char` ;
+string = '"' value:/(\\.|[^"\\])*/ '"' ;
+integer = value:/[0-9]+/ ;
+bool = value:('true' | 'false') ;
+
+# named function parameters
+param = name:ident [ {sp} ':=' {sp} value:expr ] ;
+params = ( {sp} ',' {sp} ).{ param } ;
+
+# delimited expressions
+parens = '(' ~ atoms:xatoms ')' ;
+angles = '<' ~ atoms:xatoms '>' ;
+braces = '{' ~ atoms:xatoms '}' ;
+brackets = '[' ~ atoms:xatoms ']' ;
+case = 'case' {sp} '<' ~ atoms:xatoms 'default' {sp} ':' {sp} default:expr {sp} '>' ;
+where = 'where' {sp} ~ lhs:idents {sp} ('is' | ':=');
+select = 'select' {sp} ~ expr:expr {sp} 'else' ;
+
+# function expression (we also allow a name so that it can be used as a function statement too)
+function_arg = name:ident ;
+function_args = ({sp} ',' {sp}).{ function_arg } ;
+function = 'function' {sp} ~ [ name:ident {sp} ] '(' {sp} ~ args:function_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ body:stmts {sp} 'end' {sp} ~ 'function' {sp} ;
+
+# procedure expression (we also allow a name so that it can be used as a function statement too)
+procedure_arg = [ ref:'~' ] name:ident ;
+procedure_args = ({sp} ',' {sp}).{ procedure_arg } ;
+procedure = 'procedure' {sp} ~ [ name:ident {sp} ] '(' {sp} ~ args:procedure_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ body:stmts {sp} 'end' {sp} ~ 'procedure' {sp} ;
+
+# expressions
+operator = '->' | '+' | '&+' | '-' | '*' | '&*' | !'//' !'/*' '/' | '^' | '.' | '``' | '`' | '@@' | '@' | '#' | '!' | 'cat' | '&cat' | 'div' | 'mod' | 'join' | '&join' | 'meet' | '&meet' | 'diff' | 'sdiff' | 'eq' | 'ne' | 'le' | 'lt' | 'ge' | 'gt' | 'not' | 'or' | 'and' | 'in' | 'notin' | 'subset' | 'notsubset' | 'adj' | 'notadj' | 'assigned' | 'eval' | 'forall' | 'exists' | 'random' | 'rep' | 'cmpeq' | 'cmpne' ;
+xsymbol = ':->' | ':=' | ',' | '|' | ':' | '~' | 'by' ;
+atom = ident | '_' | string | parens | angles | braces | brackets | integer | operator | bool | function | procedure | where | select | case | >sp ;
+xatom = xsymbol | >atom ;
+xatoms = { xatom } ;
+expr = { atom } ;
+exprs = ( {sp} ',' {sp}).{ expr } ;
+
+# categories
+any_cat = ('.' | 'Any') type:`any` ;
+seq_cat = ('[' {sp} [ cat:cat {sp} ] ']' | 'SeqEnum' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`seq` ;
+set_cat = ('{' {sp} [ cat:cat {sp} ] '}' | 'SetEnum' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`set` ;
+ident_cat = name:ident [ {sp} '[' cats:cats ']' ] type:`ident` ;
+cat = any_cat | seq_cat | set_cat | ident_cat ;
+cats = ( {sp} ',' {sp} ).{ cat };
+
+# simple categories (as in return values)
+any_scat = any_cat ;
+seq_scat = ( '[' {sp} ']' | 'SeqEnum' ) type:`seq` ;
+set_scat = ( '{' {sp} '}' | 'SetEnum' ) type:`set` ;
+ident_scat = name:ident type:`ident` ;
+scat = any_scat | seq_scat | set_scat | ident_scat ;
+scats = ( {sp} ',' {sp} ).{ scat };
+
+# intrinsic statement
+intrinsic_arg = [ ref:'~' {sp} ] name:ident [ {sp} '::' {sp} cat:cat ] ;
+intrinsic_args = ( {sp} ',' {sp} ).{ intrinsic_arg } ;
+intrinsic_doc_char = '\' value:anychar type:`escape` | !"}" !"\" value:anychar type:`char` ;
+intrinsic_doc = '{' chars:{ intrinsic_doc_char } '}' ;
+intrinsic_stmt = 'intrinsic' {sp} ~ name:ident {sp} ~ '(' {sp} ~ args:intrinsic_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ ['->' {sp} ~ returns:scats {sp}] doc:intrinsic_doc {sp} ~ body:stmts 'end' {sp} ~ 'intrinsic' {sp} ~ ';' ;
+
+# other statements
+import_stmt = 'import' {sp} ~ file:expr {sp} ':' {sp} names:idents {sp} ';' ;
+require_stmt = 'require' {sp} ~ pred:expr {sp} ':' {sp} msg:exprs {sp} ';' ;
+requirege_stmt = 'requirege' {sp} ~ exprs:exprs {sp} ';' ;
+requirerange_stmt = 'requirerange' {sp} ~ exprs:exprs {sp} ';' ;
+assert_stmt = 'assert' {sp} ~ pred:expr {sp} ';' ;
+return_stmt = 'return' {sp} ~ [ values:exprs {sp} ] ';' ;
+if_end = 'end' {sp} ~ 'if' {sp} ';' ;
+if_next = >if_end | elif:if_elif next:`elif` | else:if_else next:`else` ;
+if_elif = 'elif' {sp} ~ pred:expr {sp} 'then' {sp} body:stmts {sp} >if_next ;
+if_else = 'else' {sp} ~ body:stmts {sp} >if_end ;
+if_stmt = 'if' {sp} ~ pred:expr {sp} 'then' {sp} body:stmts {sp} >if_next ;
+while_stmt = 'while' {sp} ~ pred:expr {sp} 'do' {sp} body:stmts {sp} 'end' {sp} ~ 'while' {sp} ';' ;
+repeat_stmt = 'repeat' {sp} ~ body:stmts {sp} 'until' {sp} ~ pred:expr {sp} ';' ;
+declare_type_stmt = 'declare' {sp} 'type' {sp} ~ cat:ident {sp} [ '[' {sp} ~ eltcat:ident {sp} ']' {sp} ] [ ':' {sp} ~ parents:idents {sp} ] ';' ;
+declare_attributes_stmt = 'declare' {sp} 'attributes' {sp} ~ cat:ident {sp} ':' {sp} ~ attrs:idents {sp} ';' ;
+declare_verbose_stmt = 'declare' {sp} 'verbose' {sp} ~ name:ident {sp} ',' {sp} max:integer {sp} ';' ;
+case_end = 'end' {sp} ~ 'case' {sp} ';' ;
+case_next = >case_end | when:case_when next:`when` | else:case_else next:`else` ;
+case_else = 'else' {sp} ~ body:stmts {sp} >case_end ;
+case_when = 'when' {sp} ~ values:exprs {sp} ':' {sp} body:stmts {sp} >case_next ;
+case_stmt = 'case' {sp} ~ value:expr {sp} ':' {sp} >case_next ;
+print_level = 'Magma' | 'Default' | 'Maximal' | 'Minimal' ;
+print_stmt = 'print' {sp} ~ values:exprs {sp} [ ':' {sp} print_level:print_level ] ';' ;
+printf_stmt = 'printf' {sp} ~ values:exprs {sp} ';' ;
+error_if_stmt = 'error' {sp} 'if' {sp} ~ values:exprs {sp} ';' ;
+error_stmt = 'error' {sp} ~ values:exprs {sp} ';' ;
+for_stmt = 'for' {sp} ~  var:ident {sp} (itertype:'in' {sp} ~ iter:expr {sp} | itertype:':=' {sp} ~ start:expr {sp} 'to' {sp} end:expr {sp} [ 'by' {sp} jump:expr ]) 'do' {sp} body:stmts {sp} 'end' {sp} ~ 'for' {sp} ';' ;
+break_stmt = 'break' {sp} ~ [ var:ident {sp} ] ';' ;
+continue_stmt = 'continue' {sp} ~ [ var:ident {sp} ] ';' ;
+delete_stmt = 'delete' {sp} ~ vals:exprs {sp} ';' ;
+expr_stmt = exprs:exprs {sp} [ ':' {sp} ~ print_level:print_level {sp}] ';' ;
+forward_stmt = 'forward' {sp} ~ names:idents {sp} ';' ;
+vprint_stmt = 'vprint' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' values:exprs {sp} ';' ;
+vprintf_stmt = 'vprintf' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' values:exprs {sp} ';' ;
+
+assign = ':=' ;
+assign_stmt = lhs:exprs {sp} assign:assign {sp} ~ rhs:expr {sp} ';' ;
+
+stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | assign_stmt | expr_stmt ;
+stmts = { stmt } ;
