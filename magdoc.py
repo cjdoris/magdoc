@@ -306,12 +306,13 @@ def tr_doc_command(cmd):
     return DocCommand(cmd)
 
 class Section:
-  def __init__(self, name=None, parent=None):
+  def __init__(self, name=None, parent=None, src_order=None):
     self.name = name
     self.parent = parent
     self.level = self.parent.level+1 if self.parent else 0
     self.children = []
     self.docs = []
+    self.src_order = src_order
   def get_level(self, level):
     assert level >= 0
     assert level <= self.level
@@ -323,8 +324,8 @@ class Section:
     for c in self.children:
       if c.name == name:
         return c
-  def new_child(self, name):
-    c = Section(name=name, parent=self)
+  def new_child(self, name, **kwargs):
+    c = Section(name=name, parent=self, **kwargs)
     self.children.append(c)
     return c
   def parents(self):
@@ -374,10 +375,9 @@ if __name__ == '__main__':
   xs = []
   for filename in args.filenames:
     path = Path(filename)
-    print('reading', path, '...')
+    print('parsing', path, '...')
     code = path.open().read()
     if path.suffix in MAGMA_EXTNS:
-      print('parsing ...')
       asts = parser.parse(code)
       for ast in asts:
         x = tr_statement(ast)
@@ -401,7 +401,7 @@ if __name__ == '__main__':
 
   # do the documentation commands
   newxs = []
-  root_sec = cur_sec = Section()
+  root_sec = cur_sec = Section(src_order=-1)
   cur_docs = []
   cur_intrs = None
   doc_for = None
@@ -412,9 +412,9 @@ if __name__ == '__main__':
       par_sec = cur_sec.get_level(x.level - 1)
       cur_sec = par_sec.find_child(x.name)
       if cur_sec is None:
-        cur_sec = par_sec.new_child(x.name)
-        cur_sec.src_order = x.src_order
+        cur_sec = par_sec.new_child(x.name, src_order=x.src_order)
         newxs.append(cur_sec)
+      assert cur_sec is not None
       doc_for = cur_sec
       ditto = False
       hide = False
@@ -443,6 +443,7 @@ if __name__ == '__main__':
       if hide:
         hide = False
         continue
+      assert cur_sec is not None
       x.docs = cur_docs
       x.section = cur_sec
       cur_docs = []
@@ -503,9 +504,9 @@ if __name__ == '__main__':
     if isinstance(x, AnyCategory):
       return template_subs(args.anycat_tmpl) if (args.show_any or not can_hide_any) else ''
     elif isinstance(x, SetCategory):
-      return template_subs(args.setcat_tmpl, cat=cat_out(x.cat))
+      return template_subs(args.setcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
     elif isinstance(x, SequenceCategory):
-      return template_subs(args.seqcat_tmpl, cat=cat_out(x.cat))
+      return template_subs(args.seqcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
     elif isinstance(x, IdentCategory):
       return template_subs(args.cat_tmpl, name=out_encode(x.name.code()), cats=[cat_out(c) for c in x.cats] if x.cats else [])
     else:
