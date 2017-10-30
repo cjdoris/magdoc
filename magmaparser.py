@@ -347,8 +347,14 @@ class MagmaParser(Parser):
 
     @tatsumasu()
     def _whitespace_(self):  # noqa
-        self._pattern(r'\s+')
-        self.name_last_node('space')
+        with self._choice():
+            with self._option():
+                self._pattern(r'\s+')
+                self.name_last_node('space')
+            with self._option():
+                self._token('///~')
+                self._cut()
+            self._error('no available options')
         self.ast._define(
             ['space'],
             []
@@ -358,11 +364,11 @@ class MagmaParser(Parser):
     def _sp_(self):  # noqa
         with self._choice():
             with self._option():
+                self._whitespace_()
+            with self._option():
                 self._line_comment_()
             with self._option():
                 self._block_comment_()
-            with self._option():
-                self._whitespace_()
             self._error('no available options')
 
     @tatsumasu()
@@ -922,11 +928,11 @@ class MagmaParser(Parser):
             with self._option():
                 with self._choice():
                     with self._option():
+                        self._whitespace_()
+                    with self._option():
                         self._line_comment_()
                     with self._option():
                         self._block_comment_()
-                    with self._option():
-                        self._whitespace_()
                     self._error('no available options')
             self._error('no available options')
 
@@ -970,11 +976,11 @@ class MagmaParser(Parser):
                     with self._option():
                         with self._choice():
                             with self._option():
+                                self._whitespace_()
+                            with self._option():
                                 self._line_comment_()
                             with self._option():
                                 self._block_comment_()
-                            with self._option():
-                                self._whitespace_()
                             self._error('no available options')
                     self._error('no available options')
             self._error('no available options')
@@ -1412,17 +1418,21 @@ class MagmaParser(Parser):
         self._cut()
         self._stmts_()
         self.name_last_node('body')
-        self._token('end')
 
         def block16():
             self._sp_()
         self._closure(block16)
-        self._cut()
-        self._token('intrinsic')
+        self._token('end')
 
         def block17():
             self._sp_()
         self._closure(block17)
+        self._cut()
+        self._token('intrinsic')
+
+        def block18():
+            self._sp_()
+        self._closure(block18)
         self._cut()
         self._token(';')
         self.ast._define(
@@ -2534,6 +2544,56 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _try_stmt_(self):  # noqa
+        self._token('try')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._stmts_()
+        self.name_last_node('tbody')
+
+        def block2():
+            self._sp_()
+        self._closure(block2)
+        self._token('catch')
+
+        def block3():
+            self._sp_()
+        self._closure(block3)
+        self._cut()
+        self._ident_()
+        self.name_last_node('errval')
+
+        def block5():
+            self._sp_()
+        self._closure(block5)
+        self._cut()
+        self._stmts_()
+        self.name_last_node('cbody')
+
+        def block7():
+            self._sp_()
+        self._closure(block7)
+        self._token('end')
+
+        def block8():
+            self._sp_()
+        self._closure(block8)
+        self._cut()
+        self._token('try')
+
+        def block9():
+            self._sp_()
+        self._closure(block9)
+        self._token(';')
+        self.ast._define(
+            ['cbody', 'errval', 'tbody'],
+            []
+        )
+
+    @tatsumasu()
     def _assign_(self):  # noqa
         self._token(':=')
 
@@ -2619,6 +2679,8 @@ class MagmaParser(Parser):
                 self._vprint_stmt_()
             with self._option():
                 self._vprintf_stmt_()
+            with self._option():
+                self._try_stmt_()
             with self._option():
                 self._assign_stmt_()
             with self._option():
@@ -2893,6 +2955,9 @@ class MagmaSemantics(object):
         return ast
 
     def vprintf_stmt(self, ast):  # noqa
+        return ast
+
+    def try_stmt(self, ast):  # noqa
         return ast
 
     def assign(self, ast):  # noqa

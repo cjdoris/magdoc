@@ -19,8 +19,8 @@ idents = ( {sp} ',' {sp} ).{ ident };
 # space
 block_comment = '/*' ~ chars:{ !'*/' anychar } '*/' ;
 line_comment = '//' ~ text:/.*?$/ ;
-whitespace = space:/\s+/ ;
-sp = line_comment | block_comment | whitespace ;
+whitespace = space:/\s+/ | '///~' ~ ;
+sp = whitespace | line_comment | block_comment ;
 
 # literals
 #string_char = '\' value:anychar type:`escape` | !'"' !'\' value:anychar type:`char` ;
@@ -81,7 +81,7 @@ intrinsic_arg = [ ref:'~' {sp} ] name:ident [ {sp} '::' {sp} cat:cat ] ;
 intrinsic_args = ( {sp} ',' {sp} ).{ intrinsic_arg } ;
 intrinsic_doc_char = '\' value:anychar type:`escape` | !"}" !"\" value:anychar type:`char` ;
 intrinsic_doc = '{' chars:{ intrinsic_doc_char } '}' ;
-intrinsic_stmt = 'intrinsic' {sp} ~ name:ident {sp} ~ '(' {sp} ~ args:intrinsic_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ ['->' {sp} ~ returns:scats {sp}] doc:intrinsic_doc {sp} ~ body:stmts 'end' {sp} ~ 'intrinsic' {sp} ~ ';' ;
+intrinsic_stmt = 'intrinsic' {sp} ~ name:ident {sp} ~ '(' {sp} ~ args:intrinsic_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ ['->' {sp} ~ returns:scats {sp}] doc:intrinsic_doc {sp} ~ body:stmts {sp} 'end' {sp} ~ 'intrinsic' {sp} ~ ';' ;
 
 # other statements
 import_stmt = 'import' {sp} ~ file:expr {sp} ':' {sp} names:idents {sp} ';' ;
@@ -118,9 +118,10 @@ expr_stmt = exprs:exprs {sp} [ ':' {sp} ~ print_level:print_level {sp}] ';' ;
 forward_stmt = 'forward' {sp} ~ names:idents {sp} ';' ;
 vprint_stmt = 'vprint' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' values:exprs {sp} ';' ;
 vprintf_stmt = 'vprintf' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' values:exprs {sp} ';' ;
+try_stmt = 'try' {sp} ~ tbody:stmts {sp} 'catch' {sp} ~ errval:ident {sp} ~ cbody:stmts {sp} 'end' {sp} ~ 'try' {sp} ';' ;
 
 assign = ':=' ;
 assign_stmt = lhs:exprs {sp} assign:assign {sp} ~ rhs:expr {sp} ';' ;
 
-stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | assign_stmt | expr_stmt ;
+stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | try_stmt | assign_stmt | expr_stmt ;
 stmts = { stmt } ;

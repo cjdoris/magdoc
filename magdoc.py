@@ -160,7 +160,7 @@ class Space(Node):
 class Whitespace(Space):
   def __init__(self, ast):
     super().__init__(ast)
-    self.value = ast.space
+    self.value = ast.space or ''
 
 class Comment(Space):
   pass
