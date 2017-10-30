@@ -30,7 +30,7 @@ Example magma file:
 ```
 ///# My module
 ///This documents the first section.
-
+///
 ///toc
 
 ///## Introduction
