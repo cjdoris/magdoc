@@ -20,11 +20,12 @@ The source files are either:
 
 For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if they had `///` prepended to each line and then interpreted as a MAGMA file.
 
-- Comments starting `/// ` (i.e. a space after the three slashes) are markdown formatted documentation. If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
-- Comments starting `///#` are sectioning commands. Additional `#`s give deeper sections, and the rest is the section name.
+- `/// TEXT`: markdown formatted documentation. If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
+- `///# NAME` define sections. Additional `#`s give deeper sections.
 - `///hide` hides the thing to which it is attached.
 - `///ditto` groups this intrinsic with the previous one; typically they have similar inputs and the same return types; when the return types are the same, they are merged in the documentation.
 - `///toc` inserts a simple table of contents of the current section.
+- `///param NAME:=DEFAULT TEXT` documents the parameter NAME. `:=DEFAULT` and `TEXT` are both optional. `DEFAULT` must not contain any spaces.
 
 If an intrinsic does not have any documentation attached to it via doc comments, then we consider the `{}`-delimited docstring instead. If it is `{"}` then the intrinsic is grouped with the previous (the same as for `///ditto`), otherwise the contents become documentation for the intrinsic.
 
