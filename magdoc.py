@@ -52,6 +52,7 @@ class IntrinsicStatement(Statement):
     self.params = [tr_parameter(x) for x in ast.params] if ast.params else []
     self.returns = [tr_scategory(x) for x in ast.returns] if ast.returns else []
     self.doc = tr_intrinsic_doc(ast.doc)
+    self.constructor = 'ext' if (self.name.code()=='ExtConstructor' and len(self.args)==2) else 'elt' if (self.name.code()=='EltConstructor' and len(self.args)==2) else 'quo' if (self.name.code()=='QuoConstructor' and len(self.args)==2) else None
   def decl_code(self, returns=True):
     ret = 'intrinsic '
     ret += self.name.code()
@@ -206,6 +207,20 @@ class DittoDocCommand(DocCommand):
 class HideDocCommand(DocCommand):
   pass
 
+class HideAllDocCommand(DocCommand):
+  pass
+
+class HideNoneDocCommand(DocCommand):
+  pass
+
+class LabelDocCommand(DocCommand):
+  def __init__(self, cmd):
+    super().__init__(cmd)
+    words = cmd.split(None, 1)
+    assert len(words) == 2
+    assert words[0] == 'label'
+    self.name = words[1]
+
 class TocDocCommand(DocCommand):
   def rows(self):
     def go(sec, depth):
@@ -230,6 +245,14 @@ class ParamDocCommand(DocCommand):
     x = words[1].split(':=', 1)
     self.param = x[0]
     self.default = x[1] if len(x) > 1 else ''
+
+class SectionRefDocCommand(DocCommand):
+  def __init__(self, cmd):
+    super().__init__(cmd)
+    words = cmd.split(None, 1)
+    assert len(words) == 2
+    assert words[0] == 'sec'
+    self.name = words[1]
 
 class Expression(Node):
   pass
@@ -321,8 +344,16 @@ def tr_doc_command(cmd):
     return TocDocCommand(cmd)
   elif cmd.startswith('param '):
     return ParamDocCommand(cmd)
+  elif cmd.startswith('label '):
+    return LabelDocCommand(cmd)
+  elif cmd=='hide-all':
+    return HideAllDocCommand(cmd)
+  elif cmd=='hide-none':
+    return HideNoneDocCommand(cmd)
+  elif cmd.startswith('sec '):
+    return SectionRefDocCommand(cmd)
   else:
-    return DocCommand(cmd)
+    raise ValueError('unknown doc command', cmd)
 
 class Section:
   def __init__(self, name=None, parent=None, src_order=None):
@@ -352,7 +383,7 @@ class Section:
     if self.parent:
       yield from self.parent.parents()
   def name_url(self):
-    return '#' + self.name.lower().replace(' ', '-')
+    return '#' + ''.join(c if c in 'abcdefghijklmnopqrstuvwxyz-_' else '-' if c in ' ' else '' for c in self.name.lower())
 
 class IntrinsicGroup:
   def __init__(self):
@@ -373,6 +404,10 @@ if __name__ == '__main__':
   group.add_argument('--intr-tmpl', metavar='TMPL', default='{groups:~> \n}{{:.intrinsic}}\n\n{doc}{params:?**Parameters**}\n{params:~\n}{params:?\n\n}', help='intrinsic (groups, doc)')
   group.add_argument('--igroup-tmpl', metavar='TMPL', default='{decls:~> \n}{ret:?> \n}{ret}', help='intrinsic group (decls, ret)')
   group.add_argument('--idecl-tmpl', metavar='TMPL', default='> **{name}** ({args:~, })\n', help='intrinsic declaration (name, args)')
+  group.add_argument('--cdecl-tmpl', metavar='TMPL', default='> **{name}** \\<{content}>\n', help='constructor declaration (name, content)')
+  group.add_argument('--extcon-tmpl', metavar='TMPL', default='{lhs} \\| {rhs}', help='ext constructor content declaration (lhs, rhs)')
+  group.add_argument('--eltcon-tmpl', metavar='TMPL', default='{lhs} \\| {rhs}', help='elt constructor content declaration (lhs, rhs)')
+  group.add_argument('--quocon-tmpl', metavar='TMPL', default='{lhs} \\| {rhs}', help='elt constructor content declaration (lhs, rhs)')
   group.add_argument('--iret-tmpl', metavar='TMPL', default='> -> {cats:~, }\n> {{:.ret}}\n', help='intrinsic return types (cats)')
   group.add_argument('--anycat-tmpl', metavar='TMPL', default='Any', help='Any type')
   group.add_argument('--setcat-tmpl', metavar='TMPL', default='{{{cat}}}', help='SetEnum type (cat)')
@@ -419,13 +454,21 @@ if __name__ == '__main__':
   for i,x in enumerate(xs):
     x.src_order = i
 
-  # create sections and attach all other doc commands to their targets
+  # perform doc commands which act "globally" (such as sectioning) and attach the rest to their targets
   newxs = []
   root_sec = cur_sec = Section(src_order=-1)
   docs_for_next = []
   docs_for_sec = False
+  hide_all = False
+  sec_labels = dict()
   for x in xs:
-    if isinstance(x, SectionDocCommand):
+    if isinstance(x, HideNoneDocCommand):
+      hide_all = False
+    elif hide_all:
+      pass
+    elif isinstance(x, HideAllDocCommand):
+      hide_all = True
+    elif isinstance(x, SectionDocCommand):
       par_sec = cur_sec.get_level(x.level - 1)
       cur_sec = par_sec.find_child(x.name)
       if cur_sec is None:
@@ -435,6 +478,16 @@ if __name__ == '__main__':
       docs_for_sec = True
       cur_sec.docs += docs_for_next
       docs_for_next = []
+    elif isinstance(x, SectionRefDocCommand):
+      cur_sec = sec_labels[x.name]
+      docs_for_sec = False
+      cur_sec.docs += docs_for_next
+      docs_for_next = []
+    elif isinstance(x, LabelDocCommand):
+      if docs_for_sec:
+        sec_labels[x.name] = cur_sec
+      else:
+        print('WARNING: ignoring label doc command')
     elif isinstance(x, DocCommand):
       if docs_for_sec:
         cur_sec.docs.append(x)
@@ -464,7 +517,7 @@ if __name__ == '__main__':
       else:
         assert False
 
-  # apply doc commands
+  # apply doc commands attached to nodes
   newxs = []
   cur_intrs = None
   for x in xs:
@@ -536,6 +589,8 @@ if __name__ == '__main__':
         print('WARNING: ignoring docs on', x)
   xs = newxs
 
+  # TODO: remove sections from the list and when outputting, simply look for when the section changes
+
   # sort
   xs.sort(key = lambda x: (x.src_order, -1) if isinstance(x,Section) else (x.section.src_order, x.src_order))
 
@@ -568,6 +623,19 @@ if __name__ == '__main__':
     return template_subs(args.arg_tmpl, ref=x.is_ref, name=out_encode(x.name.code()), cat=cat_out(x.cat, can_hide_any=True))
   def doc_out(text):
     return template_subs(args.doc_tmpl, doc=text)
+  def intr_decl_out(x):
+    if x.constructor:
+      if x.constructor == 'ext':
+        content = template_subs(args.extcon_tmpl, lhs=iarg_out(x.args[0]), rhs='...')
+      elif x.constructor == 'elt':
+        content = template_subs(args.eltcon_tmpl, lhs=iarg_out(x.args[0]), rhs='...')
+      elif x.constructor == 'quo':
+        content = template_subs(args.quocon_tmpl, lhs=iarg_out(x.args[0]), rhs='...')
+      else:
+        assert False
+      return template_subs(args.cdecl_tmpl, name=x.constructor, content=content)
+    else:
+      return template_subs(args.idecl_tmpl, name=out_encode(x.name.code()), args=[iarg_out(arg) for arg in x.args])
   def intr_out(x):
     # group the intrinsics by their return values
     gs = dict()
@@ -598,7 +666,7 @@ if __name__ == '__main__':
             params.append((name, dflt, doc, hide))
     # apply the template
     return template_subs(args.intr_tmpl,
-      groups=[template_subs(args.igroup_tmpl, decls=[template_subs(args.idecl_tmpl, name=out_encode(intr.name.code()), args=[iarg_out(arg) for arg in intr.args]) for intr in intrs], ret=ret) for ret,intrs in gs],
+      groups=[template_subs(args.igroup_tmpl, decls=[intr_decl_out(intr) for intr in intrs], ret=ret) for ret,intrs in gs],
       doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
       params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc,hide in params if not hide]
     )
