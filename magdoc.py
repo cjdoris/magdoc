@@ -178,7 +178,7 @@ class DocComment(LineComment):
     self.command = tr_doc_command(self.text[1:])
 
 class DocCommand:
-  def __init__(self, cmd):
+  def __init__(self, cmd=None):
     self.command = cmd
 
 class SectionDocCommand(DocCommand):
@@ -213,6 +213,17 @@ class TocDocCommand(DocCommand):
         yield (s, depth)
         yield from go(s, depth+1)
     return list(go(self.section, 0))
+
+class ParamDocCommand(DocCommand):
+  def __init__(self, cmd):
+    super().__init__(cmd)
+    words = cmd.split(None, 2)
+    assert len(words) >= 2
+    assert words[0] == 'param'
+    self.doc = words[2] if len(words) > 2 else ''
+    x = words[1].split(':=', 1)
+    self.param = x[0]
+    self.default = x[1] if len(x) > 1 else ''
 
 class Expression(Node):
   pass
@@ -302,6 +313,8 @@ def tr_doc_command(cmd):
     return HideDocCommand(cmd)
   elif cmd=='toc':
     return TocDocCommand(cmd)
+  elif cmd.startswith('param '):
+    return ParamDocCommand(cmd)
   else:
     return DocCommand(cmd)
 
@@ -351,7 +364,7 @@ if __name__ == '__main__':
   group.add_argument('--show-any', action='store_const', const=True, default=False, help='always show the Any type')
   group = parser.add_argument_group('Templates')
   group.add_argument('--arg-tmpl', metavar='TMPL', default='{ref:?~}{name}{cat:? :: }{cat}', help='function argument (ref, name, cat)')
-  group.add_argument('--intr-tmpl', metavar='TMPL', default='{groups:~> \n}{{:.intrinsic}}\n\n{doc}', help='intrinsic (groups, doc)')
+  group.add_argument('--intr-tmpl', metavar='TMPL', default='{groups:~> \n}{{:.intrinsic}}\n\n{doc}{params:?**Parameters**}\n{params:~\n}{params:?\n\n}', help='intrinsic (groups, doc)')
   group.add_argument('--igroup-tmpl', metavar='TMPL', default='{decls:~> \n}{ret:?> \n}{ret}', help='intrinsic group (decls, ret)')
   group.add_argument('--idecl-tmpl', metavar='TMPL', default='> **{name}** ({args:~, })\n', help='intrinsic declaration (name, args)')
   group.add_argument('--iret-tmpl', metavar='TMPL', default='> -> {cats:~, }\n> {{:.ret}}\n', help='intrinsic return types (cats)')
@@ -363,6 +376,7 @@ if __name__ == '__main__':
   group.add_argument('--doc-tmpl', metavar='TMPL', default='{doc}{doc:?\n\n}', help='documentation text (doc)')
   group.add_argument('--toc-tmpl', metavar='TMPL', default='**Contents**\n{rows:~\n}', help='table of contents (rows)')
   group.add_argument('--tocrow-tmpl', metavar='TMPL', default='{level:*  }* [{name}]({url})', help='row of table of contents (name, url, level)')
+  group.add_argument('--param-tmpl', metavar='TMPL', default='- `{name}{default:? := }{default}`{doc:?: }{doc}', help='a function parameter (name, default, doc)')
   args = parser.parse_args()
 
   # create the output directory
@@ -399,14 +413,11 @@ if __name__ == '__main__':
   for i,x in enumerate(xs):
     x.src_order = i
 
-  # do the documentation commands
+  # create sections and attach all other doc commands to their targets
   newxs = []
   root_sec = cur_sec = Section(src_order=-1)
-  cur_docs = []
-  cur_intrs = None
-  doc_for = None
-  ditto = False
-  hide = False
+  docs_for_next = []
+  docs_for_sec = False
   for x in xs:
     if isinstance(x, SectionDocCommand):
       par_sec = cur_sec.get_level(x.level - 1)
@@ -415,60 +426,93 @@ if __name__ == '__main__':
         cur_sec = par_sec.new_child(x.name, src_order=x.src_order)
         newxs.append(cur_sec)
       assert cur_sec is not None
-      doc_for = cur_sec
-      ditto = False
-      hide = False
-      cur_intrs = None
-    elif isinstance(x, TextDocCommand):
-      if doc_for:
-        doc_for.docs.append(x)
-      else:
-        cur_docs.append(x)
-    elif isinstance(x, TocDocCommand):
-      assert doc_for
-      x.section = cur_sec
-      doc_for.docs.append(x)
-    elif isinstance(x, DittoDocCommand):
-      ditto = True
-    elif isinstance(x, HideDocCommand):
-      hide = True
+      docs_for_sec = True
+      cur_sec.docs += docs_for_next
+      docs_for_next = []
     elif isinstance(x, DocCommand):
-      assert False
+      if docs_for_sec:
+        cur_sec.docs.append(x)
+      else:
+        docs_for_next.append(x)
     elif isinstance(x, Space):
-      if isinstance(x, Whitespace) and max(sum(c=='\n' for c in x.value), sum(c=='\r' for c in x.value)) <= 1:
-        pass
-      else:
-        doc_for = None
+      if docs_for_sec and isinstance(x, Whitespace):
+        if sum(c=='\n' for c in x.value)>1 or sum(c=='\r' for c in x.value)>1 or sum(c!='\n' and c!='\t' for c in x.value)>0:
+          docs_for_sec = False
     elif isinstance(x, Statement):
-      if hide:
-        hide = False
-        continue
-      assert cur_sec is not None
-      x.docs = cur_docs
+      docs_for_sec = False
       x.section = cur_sec
-      cur_docs = []
-      if isinstance(x, IntrinsicStatement):
-        # if there are no docs for this, then use the intrinsic's {} docstring
-        if not x.docs:
-          if isinstance(x.doc, IntrinsicDoc):
-            x.docs = [TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars))]
-          elif isinstance(x.doc, IntrinsicDittoDoc):
-            ditto = True
-          else:
-            assert False
-        if not ditto:
-          cur_intrs = IntrinsicGroup()
-          cur_intrs.section = x.section
-          cur_intrs.src_order = x.src_order
-          newxs.append(cur_intrs)
-        cur_intrs.intrinsics.append(x)
-        ditto = False
-      else:
-        newxs.append(x)
-      if ditto: print('WARNING: ignoring ditto')
-      ditto = False
+      x.docs = getattr(x, 'docs', []) + docs_for_next
+      docs_for_next = []
+      newxs.append(x)
     else:
       assert False
+  xs = newxs
+
+  # if an intrinsic has no doc commands, get one from the "{...}" docstring
+  for x in xs:
+    if isinstance(x, IntrinsicStatement) and not x.docs:
+      if isinstance(x.doc, IntrinsicDoc):
+        x.docs = [TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars))]
+      elif isinstance(x.doc, IntrinsicDittoDoc):
+        x.docs = [DittoDocCommand()]
+      else:
+        assert False
+
+  # apply doc commands
+  newxs = []
+  cur_intrs = None
+  for x in xs:
+    docs = x.docs
+    x.docs = []
+    ditto = False
+    hide = False
+    for d in docs:
+      if isinstance(d, TextDocCommand):
+        x.docs.append(d)
+      elif isinstance(d, TocDocCommand):
+        if isinstance(x, Section):
+          d.section = x
+          x.docs.append(d)
+        else:
+          print('WARNING: ignoring toc doc command: not a section')
+      elif isinstance(d, DittoDocCommand):
+        ditto = True
+      elif isinstance(d, HideDocCommand):
+        hide = True
+      elif isinstance(d, ParamDocCommand):
+        if isinstance(x, IntrinsicStatement):
+          for p in x.params:
+            if p.name.code() == d.param:
+              if getattr(p, 'value_doc', ''):
+                print('WARNING: ignoring param doc command default: already set')
+              else:
+                p.value_doc = d.default
+              if getattr(p, 'doc_text', ''):
+                p.doc_text += ' ' + d.doc
+              else:
+                p.doc_text = d.doc
+              break
+          else:
+            print('WARNING: ignoring param doc command: invalid parameter name')
+        else:
+          print('WARNING: ignoring param doc command: not an intrinsic')
+      else:
+        assert isinstance(DocCommand)
+        assert False
+    # hide
+    if hide:
+      continue
+    # ditto
+    if isinstance(x, IntrinsicStatement):
+      if not ditto:
+        cur_intrs = IntrinsicGroup()
+        cur_intrs.section = x.section
+        cur_intrs.src_order = x.src_order
+        newxs.append(cur_intrs)
+      cur_intrs.intrinsics.append(x)
+    else:
+      if ditto: print('WARNING: ignoring ditto')
+      newxs.append(x)
   xs = newxs
 
   # filter
@@ -481,7 +525,7 @@ if __name__ == '__main__':
     elif isinstance(x, IntrinsicGroup):
       newxs.append(x)
     else:
-      if hasattr(x, 'docs') and x.docs:
+      if getattr(x, 'docs', []):
         print('WARNING: ignoring docs on', x)
   xs = newxs
 
@@ -500,6 +544,8 @@ if __name__ == '__main__':
     return '-'.join(reversed(list(path_replace(s.name.lower()) for s in sec.parents() if s.name))) + '.md'
   def out_encode(x):
     return replace_many(x, ENCODE_REPLACE)
+  def ident_out(x):
+    return out_encode(x.code())
   def cat_out(x, can_hide_any=False):
     if isinstance(x, AnyCategory):
       return template_subs(args.anycat_tmpl) if (args.show_any or not can_hide_any) else ''
@@ -525,8 +571,35 @@ if __name__ == '__main__':
       else:
         gs[r] = [intr]
     gs = sorted(gs.items(), key = lambda z: min(intr.src_order for intr in z[1]))
+    # collate parameters
+    params = []
+    for ret, intrs in gs:
+      for intr in intrs:
+        for param in intr.params:
+          name = ident_out(param.name)
+          dflt = getattr(param, 'value_doc', '')
+          doc = getattr(param, 'doc_text', '')
+          for i,p in enumerate(params):
+            if p[0] == name:
+              if dflt:
+                if p[1]:
+                  print('WARNING: ignoring a parameter default')
+                else:
+                  p[1] = dflt
+              if doc:
+                if p[2]:
+                  p[2] += ' ' + doc
+                else:
+                  p[2] = doc
+              break
+          else:
+            params.append((name, dflt, doc))
     # apply the template
-    return template_subs(args.intr_tmpl, groups=[template_subs(args.igroup_tmpl, decls=[template_subs(args.idecl_tmpl, name=out_encode(intr.name.code()), args=[iarg_out(arg) for arg in intr.args]) for intr in intrs], ret=ret) for ret,intrs in gs], doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)))
+    return template_subs(args.intr_tmpl,
+      groups=[template_subs(args.igroup_tmpl, decls=[template_subs(args.idecl_tmpl, name=out_encode(intr.name.code()), args=[iarg_out(arg) for arg in intr.args]) for intr in intrs], ret=ret) for ret,intrs in gs],
+      doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
+      params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc in params]
+    )
   def toc_out(x):
     return template_subs(args.toc_tmpl, rows=[template_subs(args.tocrow_tmpl, name=sec.name, url=sec.name_url(), level=lvl) for sec,lvl in x.rows()])
   def doctext_out(x):
