@@ -415,7 +415,7 @@ if __name__ == '__main__':
   group.add_argument('--cat-tmpl', metavar='TMPL', default='*{name}*{cats:?[}{cats:~, }{cats:?]}', help='normal types (name, cat)')
   group.add_argument('--section-tmpl', metavar='TMPL', default='{level:*#} {name}\n\n{doc}', help='sections (level, name)')
   group.add_argument('--doc-tmpl', metavar='TMPL', default='{doc}{doc:?\n\n}', help='documentation text (doc)')
-  group.add_argument('--toc-tmpl', metavar='TMPL', default='**Contents**\n{rows:~\n}', help='table of contents (rows)')
+  group.add_argument('--toc-tmpl', metavar='TMPL', default='\n**Contents**\n{rows:~\n}', help='table of contents (rows)')
   group.add_argument('--tocrow-tmpl', metavar='TMPL', default='{level:*  }* [{name}]({url})', help='row of table of contents (name, url, level)')
   group.add_argument('--param-tmpl', metavar='TMPL', default='- `{name}{default:? := }{default}`{doc:?: }{doc}', help='a function parameter (name, default, doc)')
   args = parser.parse_args()
