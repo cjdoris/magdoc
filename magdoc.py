@@ -220,7 +220,13 @@ class ParamDocCommand(DocCommand):
     words = cmd.split(None, 2)
     assert len(words) >= 2
     assert words[0] == 'param'
-    self.doc = words[2] if len(words) > 2 else ''
+    cmd = words[2] if len(words) > 2 else ''
+    self.hide = False
+    self.doc = ''
+    if cmd == '/hide':
+      self.hide = True
+    else:
+      self.doc = cmd
     x = words[1].split(':=', 1)
     self.param = x[0]
     self.default = x[1] if len(x) > 1 else ''
@@ -483,6 +489,7 @@ if __name__ == '__main__':
         if isinstance(x, IntrinsicStatement):
           for p in x.params:
             if p.name.code() == d.param:
+              p.hide = getattr(p, 'hide', False) or d.hide
               if getattr(p, 'value_doc', ''):
                 print('WARNING: ignoring param doc command default: already set')
               else:
@@ -579,26 +586,21 @@ if __name__ == '__main__':
           name = ident_out(param.name)
           dflt = getattr(param, 'value_doc', '')
           doc = getattr(param, 'doc_text', '')
+          hide = getattr(param, 'hide', False)
           for i,p in enumerate(params):
             if p[0] == name:
-              if dflt:
-                if p[1]:
-                  print('WARNING: ignoring a parameter default')
-                else:
-                  p[1] = dflt
-              if doc:
-                if p[2]:
-                  p[2] += ' ' + doc
-                else:
-                  p[2] = doc
+              if dflt and p[1]: print('WARNING: ignoring a parameter default')
+              if doc and p[2]: doc = p[2] + ' ' + doc
+              hide = hide or p[3]
+              params[i] = (name, dflt, doc, hide)
               break
           else:
-            params.append((name, dflt, doc))
+            params.append((name, dflt, doc, hide))
     # apply the template
     return template_subs(args.intr_tmpl,
       groups=[template_subs(args.igroup_tmpl, decls=[template_subs(args.idecl_tmpl, name=out_encode(intr.name.code()), args=[iarg_out(arg) for arg in intr.args]) for intr in intrs], ret=ret) for ret,intrs in gs],
       doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
-      params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc in params]
+      params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc,hide in params if not hide]
     )
   def toc_out(x):
     return template_subs(args.toc_tmpl, rows=[template_subs(args.tocrow_tmpl, name=sec.name, url=sec.name_url(), level=lvl) for sec,lvl in x.rows()])
