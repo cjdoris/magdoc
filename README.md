@@ -29,7 +29,7 @@ For MAGMA files, line comments beginning `///` (but not `////`) are special *doc
 - `///param NAME:=DEFAULT TEXT` documents the parameter NAME. `:=DEFAULT` and `TEXT` are both optional. `DEFAULT` must not contain any spaces.
 - `///label NAME` after a section command associates a label to the section.
 - `///sec NAME` changes the section to the one with the label `NAME`.
-- `///~` is ignored, so the rest of the line is treated as MAGMA code. This allows us to document intrinsics defined only in comments.
+- `///~` is ignored by the parser, so the rest of the line is treated as MAGMA code. This allows us to document intrinsics defined only in comments.
 
 If an intrinsic does not have any documentation attached to it via doc comments, then we consider the `{}`-delimited docstring instead. If it is `{"}` then the intrinsic is grouped with the previous (the same as for `///ditto`), otherwise the contents become documentation for the intrinsic.
 
