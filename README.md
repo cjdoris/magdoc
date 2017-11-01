@@ -18,7 +18,7 @@ The source files are either:
 - MAGMA source files (extension `.magma`, `.mag` or `.m`)
 - Markdown files (extension `.markdown` or `.md`)
 
-For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if each line is a 
+For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if each line is a doc comment (without the leading `///`).
 
 - `/// TEXT` is markdown formatted documentation (note the space before `TEXT`). If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
 - `///# NAME` define sections. Additional `#`s give deeper sections.
@@ -73,6 +73,10 @@ end intrinsic;
 ///~intrinsic Fish() -> []
 ///~  {This documents Fish, even though it is in a comment.}
 ///~end intrinsic
+
+//////////////////////////////////////
+// four or more slashes are ignored //
+//////////////////////////////////////
 ```
 
 ## Development
