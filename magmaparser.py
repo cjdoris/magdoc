@@ -2594,6 +2594,22 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _freeze_stmt_(self):  # noqa
+        self._token('freeze')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._token(';')
+        self._constant('freeze')
+        self.name_last_node('what')
+        self.ast._define(
+            ['what'],
+            []
+        )
+
+    @tatsumasu()
     def _assign_(self):  # noqa
         self._token(':=')
 
@@ -2681,6 +2697,8 @@ class MagmaParser(Parser):
                 self._vprintf_stmt_()
             with self._option():
                 self._try_stmt_()
+            with self._option():
+                self._freeze_stmt_()
             with self._option():
                 self._assign_stmt_()
             with self._option():
@@ -2958,6 +2976,9 @@ class MagmaSemantics(object):
         return ast
 
     def try_stmt(self, ast):  # noqa
+        return ast
+
+    def freeze_stmt(self, ast):  # noqa
         return ast
 
     def assign(self, ast):  # noqa
