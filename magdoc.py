@@ -363,6 +363,7 @@ class Section:
     self.children = []
     self.docs = []
     self.src_order = src_order
+    self.nodes = []
   def get_level(self, level):
     assert level >= 0
     assert level <= self.level
@@ -575,24 +576,13 @@ if __name__ == '__main__':
       newxs.append(x)
   xs = newxs
 
-  # filter
-  newxs = []
+  # attach nodes to sections
+  cur_sec = root_sec
   for x in xs:
     if isinstance(x, Section):
-      newxs.append(x)
-    elif isinstance(x, IntrinsicStatement):
-      assert False
-    elif isinstance(x, IntrinsicGroup):
-      newxs.append(x)
+      cur_sec = x
     else:
-      if getattr(x, 'docs', []):
-        print('WARNING: ignoring docs on', x)
-  xs = newxs
-
-  # TODO: remove sections from the list and when outputting, simply look for when the section changes
-
-  # sort
-  xs.sort(key = lambda x: (x.src_order, -1) if isinstance(x,Section) else (x.section.src_order, x.src_order))
+      cur_sec.nodes.append(x)
 
   # output
   section_files_depth = 1
@@ -679,16 +669,25 @@ if __name__ == '__main__':
       return x.text
   def section_out(x):
     return template_subs(args.section_tmpl, level=x.level, name=x.name, doc=doc_out('\n'.join(doctext_out(d) for d in x.docs)))
-  for x in xs:
-    if isinstance(x, Section):
-      if x.level <= section_files_depth:
-        opath = odir.joinpath(section_to_path(x))
+  def sorted_subsections(sec):
+    return sorted(sec.children, key = lambda x: x.src_order)
+  def sorted_nodes(sec):
+    return sorted(sec.nodes, key = lambda y: y.src_order)
+  def walk(sec, ofile=None):
+    if sec.level > 0:
+      if sec.level <= section_files_depth:
+        opath = odir.joinpath(section_to_path(sec))
         if not opath.parent.exists():
           opath.parent.mkdir(parents=True)
         ofile = opath.open('wt')
         print('writing', opath, '...')
-      ofile.write(section_out(x))
-    elif isinstance(x, IntrinsicStatement):
-      assert False
-    elif isinstance(x, IntrinsicGroup):
-      ofile.write(intr_out(x))
+      ofile.write(section_out(sec))
+      for x in sorted_nodes(sec):
+        if isinstance(x, IntrinsicGroup):
+          ofile.write(intr_out(x))
+        elif hasattr(x, 'docs') and x.docs:
+          print('ignoring docs on', x)
+    for ssec in sorted_subsections(sec):
+      ofile = walk(ssec, ofile)
+    return ofile
+  walk(root_sec)
