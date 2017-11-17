@@ -18,14 +18,18 @@ The source files are either:
 - MAGMA source files (extension `.magma`, `.mag` or `.m`)
 - Markdown files (extension `.markdown` or `.md`)
 
-For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if they had `///` prepended to each line and then interpreted as a MAGMA file.
+For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if each line is a doc comment (without the leading `///`).
 
-- `/// TEXT`: markdown formatted documentation. If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
+- `/// TEXT` is markdown formatted documentation (note the space before `TEXT`). If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
 - `///# NAME` define sections. Additional `#`s give deeper sections.
 - `///hide` hides the thing to which it is attached.
+- `///hide-all` hides everything until `///hide-none` is encountered.
 - `///ditto` groups this intrinsic with the previous one; typically they have similar inputs and the same return types; when the return types are the same, they are merged in the documentation.
 - `///toc` inserts a simple table of contents of the current section.
 - `///param NAME:=DEFAULT TEXT` documents the parameter NAME. `:=DEFAULT` and `TEXT` are both optional. `DEFAULT` must not contain any spaces.
+- `///label NAME` after a section command associates a label to the section.
+- `///sec NAME` changes the section to the one with the label `NAME`.
+- `///~` is ignored by the parser, so the rest of the line is treated as MAGMA code. This allows us to document intrinsics defined only in comments.
 
 If an intrinsic does not have any documentation attached to it via doc comments, then we consider the `{}`-delimited docstring instead. If it is `{"}` then the intrinsic is grouped with the previous (the same as for `///ditto`), otherwise the contents become documentation for the intrinsic.
 
@@ -65,6 +69,14 @@ end intrinsic;
 intrinsic Elephant() -> []
   {Elephant is undocumented.}
 end intrinsic;
+
+///~intrinsic Fish() -> []
+///~  {This documents Fish, even though it is in a comment.}
+///~end intrinsic
+
+//////////////////////////////////////
+// four or more slashes are ignored //
+//////////////////////////////////////
 ```
 
 ## Development
