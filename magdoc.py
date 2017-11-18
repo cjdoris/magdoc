@@ -419,6 +419,10 @@ if __name__ == '__main__':
   group.add_argument('--toc-tmpl', metavar='TMPL', default='\n**Contents**\n{rows:~\n}', help='table of contents (rows)')
   group.add_argument('--tocrow-tmpl', metavar='TMPL', default='{level:*  }* [{name}]({url})', help='row of table of contents (name, url, level)')
   group.add_argument('--param-tmpl', metavar='TMPL', default='- `{name}{default:? := }{default}`{doc:?: }{doc}', help='a function parameter (name, default, doc)')
+  group.add_argument('--docarg-tmpl', metavar='TMPL', default='`{name}`', help='the name of an argument in a doc string (name)')
+  group.add_argument('--docparam-tmpl', metavar='TMPL', default='`{name}`', help='the name of a parameter in a doc string (name)')
+  group.add_argument('--docprotect-rx', metavar='TMPL', default=r'`.+?`|``.+?``|```.+?```|\$\$.*?\$\$|\$.+?\$', help='fragments of documentation matching this will not be altered')
+  group.add_argument('--docident-rx', metavar='TMPL', default=r'(?<!`)(\b|\'){name}(th|st)?(\b|\')(?!`)', help='regular expression for an identifier in a doc string, used to highlight argument and parameter names automatically')
   args = parser.parse_args()
 
   # create the output directory
@@ -517,6 +521,24 @@ if __name__ == '__main__':
         x.docs = [DittoDocCommand()]
       else:
         assert False
+
+  # highlight argument and parameter names
+  re_protect = re.compile(r'(.*?)($|' + args.docprotect_rx + r')')
+  for x in xs:
+    if isinstance(x, IntrinsicStatement):
+      if x.args or x.params:
+        regex = args.docident_rx.replace(r'{name}', r'((?P<arg>' + r'|'.join(re.escape(a.name.code()) for a in x.args) + r')|(?P<param>' +  r'|'.join(re.escape(p.name.code()) for p in x.params) + r'))')
+        r = re.compile(regex)
+        def repl(m):
+          if m.group('arg'):
+            return template_subs(args.docarg_tmpl, name=m.group('arg'))
+          elif m.group('param'):
+            return template_subs(args.docparam_tmpl, name=m.group('param'))
+        def repl0(m):
+          return r.sub(repl, m.group(1)) + m.group(2)
+        for d in x.docs:
+          if isinstance(d, TextDocCommand):
+            d.text = re_protect.sub(repl0, d.text)
 
   # apply doc commands attached to nodes
   newxs = []
