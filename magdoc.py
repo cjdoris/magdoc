@@ -3,6 +3,13 @@ import re
 from itertools import groupby
 import string
 
+def dedupe(xs):
+  ys = []
+  for x in xs:
+    if x not in ys:
+      ys.append(x)
+  return ys
+
 class Data:
   pass
 
@@ -762,7 +769,7 @@ if __name__ == '__main__':
         groups=[template_subs(args.igroup_tmpl, decls=[intr_decl_out(intr) for intr in intrs], ret=ret) for ret,intrs in gs],
         doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
         params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc,hide in params if not hide],
-        anchors=[self.next_anchor(a) for a in set(x.anchors())]
+        anchors=[self.next_anchor(a) for a in dedupe(x.anchors())]
       )
     def section_out(self, x):
       return template_subs(args.section_tmpl, level=x.level, name=x.name, doc=doc_out('\n'.join(doctext_out(d) for d in x.docs)), anchor=x.fixed_anchor)
