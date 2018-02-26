@@ -3,6 +3,9 @@ import re
 from itertools import groupby
 import string
 
+class Data:
+  pass
+
 re_ident = re.compile('^(?!(_|adj|and|assert|assert2|assert3|assigned|break|by|case|cat|catch|clear|cmpeq|cmpne|continue|declare|default|delete|diff|div|do|elif|else|end|eq|error|eval|exists|exit|false|for|forall|forward|fprintf|freeze|function|ge|gt|if|iload|import|in|intrinsic|is|join|le|load|local|lt|meet|mod|ne|not|notadj|notin|notsubset|or|print|printf|procedure|quit|random|read|readi|rep|repeat|require|requirege|requirerange|restore|return|save|sdiff|select|subset|then|time|to|true|try|until|vprint|vprintf|vtime|when|where|while|xor)$)[A-Za-z_][A-Za-z0-9_]*$')
 
 DOC_CHAR = '/'
@@ -67,6 +70,15 @@ class IntrinsicStatement(Statement):
       ret += ' -> '
       ret += ', '.join(r.code() for r in self.returns)
     return ret
+  def anchors(self):
+    name = self.name.anchor()
+    yield name
+    if len(self.args) == 0:
+      yield '{}--noargs'.format(name)
+    elif len(self.args) > 1:
+      yield '{}--{}--etc'.format(name, self.args[0].cat.anchor())
+    if len(self.args) > 0:
+      yield '{}--{}'.format(name, '--'.join(arg.cat.anchor() for arg in self.args))
 
 class Identifier(Node):
   def __init__(self, ast):
@@ -77,6 +89,8 @@ class Identifier(Node):
       return self.value
     else:
       return '\'' + self.value + '\''
+  def anchor(self):
+    return self.value
 
 class IntrinsicArgument(Node):
   def __init__(self, ast):
@@ -132,6 +146,8 @@ class Category(Node):
 class AnyCategory(Category):
   def code(self):
     return '.'
+  def anchor(self):
+    return 'any'
 
 class SetCategory(Category):
   def __init__(self, ast):
@@ -139,6 +155,8 @@ class SetCategory(Category):
     self.cat = tr_category(ast.cat)
   def code(self):
     return '{{{cat}}}'.format(cat=(self.cat.code()) if self.cat else '')
+  def anchor(self):
+    return 'set' + ('' if isinstance(self.cat, AnyCategory) else '-'+self.cat.anchor())
 
 class SequenceCategory(Category):
   def __init__(self, ast):
@@ -146,6 +164,8 @@ class SequenceCategory(Category):
     self.cat = tr_category(ast.cat)
   def code(self):
     return '[{cat}]'.format(cat=(self.cat.code()) if self.cat else '')
+  def anchor(self):
+    return 'seq' + ('' if isinstance(self.cat, AnyCategory) else '-'+self.cat.anchor())
 
 class IdentCategory(Category):
   def __init__(self, ast):
@@ -154,6 +174,8 @@ class IdentCategory(Category):
     self.cats = [tr_category(x) for x in ast.cats] if ast.cats else []
   def code(self):
     return '{name}{cats}'.format(name=self.name.code(), cats=('[' + ', '.join(cat.code() for cat in self.cats) + ']') if self.cats else '')
+  def anchor(self):
+    return self.name.anchor() + ('-'+'-'.join(cat.anchor() for cat in self.cats) if self.cats else '')
 
 class Space(Node):
   pass
@@ -383,12 +405,15 @@ class Section:
     yield self
     if self.parent:
       yield from self.parent.parents()
-  def name_url(self):
-    return '#' + ''.join(c if c in 'abcdefghijklmnopqrstuvwxyz-_' else '-' if c in ' ' else '' for c in self.name.lower())
+  def anchor(self):
+    return ''.join(c if c in 'abcdefghijklmnopqrstuvwxyz-_0123456789' else '-' if c in ' ' else '' for c in self.name.lower())
 
 class IntrinsicGroup:
   def __init__(self):
     self.intrinsics = []
+  def anchors(self):
+    for intr in self.intrinsics:
+      yield from intr.anchors()
 
 if __name__ == '__main__':
   from pathlib import Path
@@ -402,7 +427,7 @@ if __name__ == '__main__':
   group.add_argument('--show-any', action='store_const', const=True, default=False, help='always show the Any type')
   group = parser.add_argument_group('Templates')
   group.add_argument('--arg-tmpl', metavar='TMPL', default='{ref:?~}{name}{cat:? :: }{cat}', help='function argument (ref, name, cat)')
-  group.add_argument('--intr-tmpl', metavar='TMPL', default='{groups:~> \n}{{:.intrinsic}}\n\n{doc}{params:?**Parameters**}\n{params:~\n}{params:?\n\n}', help='intrinsic (groups, doc)')
+  group.add_argument('--intr-tmpl', metavar='TMPL', default='{anchors:?<a id="}{anchors:~"></a><a id="}{anchors:?"></a>\n}{groups:~> \n}{{:.intrinsic}}\n\n{doc}{params:?**Parameters**}\n{params:~\n}{params:?\n\n}', help='intrinsic (groups, doc, params, anchors)')
   group.add_argument('--igroup-tmpl', metavar='TMPL', default='{decls:~> \n}{ret:?> \n}{ret}', help='intrinsic group (decls, ret)')
   group.add_argument('--idecl-tmpl', metavar='TMPL', default='> **{name}** ({args:~, })\n', help='intrinsic declaration (name, args)')
   group.add_argument('--cdecl-tmpl', metavar='TMPL', default='> **{name}** \\<{content}>\n', help='constructor declaration (name, content)')
@@ -414,15 +439,16 @@ if __name__ == '__main__':
   group.add_argument('--setcat-tmpl', metavar='TMPL', default='{{{cat}}}', help='SetEnum type (cat)')
   group.add_argument('--seqcat-tmpl', metavar='TMPL', default='[{cat}]', help='SeqEnum type (cat)')
   group.add_argument('--cat-tmpl', metavar='TMPL', default='*{name}*{cats:?[}{cats:~, }{cats:?]}', help='normal types (name, cat)')
-  group.add_argument('--section-tmpl', metavar='TMPL', default='{level:*#} {name}\n\n{doc}', help='sections (level, name)')
+  group.add_argument('--section-tmpl', metavar='TMPL', default='{level:*#} {name}\n{{:#{anchor}}}\n\n{doc}', help='sections (level, name, anchor)')
   group.add_argument('--doc-tmpl', metavar='TMPL', default='{doc}{doc:?\n\n}', help='documentation text (doc)')
   group.add_argument('--toc-tmpl', metavar='TMPL', default='\n**Contents**\n{rows:~\n}', help='table of contents (rows)')
-  group.add_argument('--tocrow-tmpl', metavar='TMPL', default='{level:*  }* [{name}]({url})', help='row of table of contents (name, url, level)')
+  group.add_argument('--tocrow-tmpl', metavar='TMPL', default='{level:*  }* [{name}](#{anchor})', help='row of table of contents (name, anchor, level)')
   group.add_argument('--param-tmpl', metavar='TMPL', default='- `{name}{default:? := }{default}`{doc:?: }{doc}', help='a function parameter (name, default, doc)')
   group.add_argument('--docarg-tmpl', metavar='TMPL', default='`{name}`', help='the name of an argument in a doc string (name)')
   group.add_argument('--docparam-tmpl', metavar='TMPL', default='`{name}`', help='the name of a parameter in a doc string (name)')
-  group.add_argument('--docprotect-rx', metavar='TMPL', default=r'`.+?`|``.+?``|```.+?```|\$\$.*?\$\$|\$.+?\$', help='fragments of documentation matching this will not be altered')
-  group.add_argument('--docident-rx', metavar='TMPL', default=r'(?<!`)(\b|\'){name}(th|st)?(\b|\')(?!`)', help='regular expression for an identifier in a doc string, used to highlight argument and parameter names automatically')
+  group.add_argument('--docprotect-rx', metavar='REGEX', default=r'```.+?```|``.+?``|`.+?`|\$\$.*?\$\$|\$.+?\$', help='fragments of documentation matching this will not be altered')
+  group.add_argument('--docident-rx', metavar='REGEX', default=r'\b{name}(?=(th|st)?\b)', help='regular expression for an identifier in a doc string, used to highlight argument and parameter names automatically')
+  group.add_argument('--anchor-tmpl', metavar='TMPL', default='<a id="{name}"></a>', help='anchor (name)')
   args = parser.parse_args()
 
   # create the output directory
@@ -512,15 +538,15 @@ if __name__ == '__main__':
       assert False
   xs = newxs
 
-  # if an intrinsic has no doc commands, get one from the "{...}" docstring
-  for x in xs:
-    if isinstance(x, IntrinsicStatement) and not x.docs:
-      if isinstance(x.doc, IntrinsicDoc):
-        x.docs = [TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars))]
-      elif isinstance(x.doc, IntrinsicDittoDoc):
-        x.docs = [DittoDocCommand()]
-      else:
-        assert False
+  # # if an intrinsic has no doc commands, get one from the "{...}" docstring
+  # for x in xs:
+  #   if isinstance(x, IntrinsicStatement) and not x.docs:
+  #     if isinstance(x.doc, IntrinsicDoc):
+  #       x.docs = [TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars))]
+  #     elif isinstance(x.doc, IntrinsicDittoDoc):
+  #       x.docs = [DittoDocCommand()]
+  #     else:
+  #       assert False
 
   # highlight argument and parameter names
   re_protect = re.compile(r'(.*?)($|' + args.docprotect_rx + r')')
@@ -581,6 +607,14 @@ if __name__ == '__main__':
           print('WARNING: ignoring param doc command: not an intrinsic')
       else:
         assert isinstance(DocCommand)
+        assert False
+    # if an intrinsic has no doc yet, use its docstring
+    if isinstance(x, IntrinsicStatement) and not x.doc:
+      if isinstance(x.doc, IntrinsicDoc):
+        x.docs.append(TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars)))
+      elif isinstance(x.doc, IntrinsicDittoDoc):
+        ditto = True
+      else:
         assert False
     # hide
     if hide:
@@ -648,68 +682,88 @@ if __name__ == '__main__':
       return template_subs(args.cdecl_tmpl, name=x.constructor, content=content)
     else:
       return template_subs(args.idecl_tmpl, name=out_encode(x.name.code()), args=[iarg_out(arg) for arg in x.args])
-  def intr_out(x):
-    # group the intrinsics by their return values
-    gs = dict()
-    for intr in x.intrinsics:
-      r = template_subs(args.iret_tmpl, cats=[cat_out(r) for r in intr.returns]) if intr.returns else ''
-      if r in gs:
-        gs[r].append(intr)
-      else:
-        gs[r] = [intr]
-    gs = sorted(gs.items(), key = lambda z: min(intr.src_order for intr in z[1]))
-    # collate parameters
-    params = []
-    for ret, intrs in gs:
-      for intr in intrs:
-        for param in intr.params:
-          name = ident_out(param.name)
-          dflt = getattr(param, 'value_doc', '')
-          doc = getattr(param, 'doc_text', '')
-          hide = getattr(param, 'hide', False)
-          for i,p in enumerate(params):
-            if p[0] == name:
-              if dflt and p[1]: print('WARNING: ignoring a parameter default')
-              if doc and p[2]: doc = p[2] + ' ' + doc
-              hide = hide or p[3]
-              params[i] = (name, dflt, doc, hide)
-              break
-          else:
-            params.append((name, dflt, doc, hide))
-    # apply the template
-    return template_subs(args.intr_tmpl,
-      groups=[template_subs(args.igroup_tmpl, decls=[intr_decl_out(intr) for intr in intrs], ret=ret) for ret,intrs in gs],
-      doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
-      params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc,hide in params if not hide]
-    )
   def toc_out(x):
-    return template_subs(args.toc_tmpl, rows=[template_subs(args.tocrow_tmpl, name=sec.name, url=sec.name_url(), level=lvl) for sec,lvl in x.rows()])
+    return template_subs(args.toc_tmpl, rows=[template_subs(args.tocrow_tmpl, name=sec.name, anchor=sec.fixed_anchor, level=lvl) for sec,lvl in x.rows()])
   def doctext_out(x):
     if isinstance(x, TocDocCommand):
       return toc_out(x)
     else:
       return x.text
-  def section_out(x):
-    return template_subs(args.section_tmpl, level=x.level, name=x.name, doc=doc_out('\n'.join(doctext_out(d) for d in x.docs)))
   def sorted_subsections(sec):
     return sorted(sec.children, key = lambda x: x.src_order)
   def sorted_nodes(sec):
     return sorted(sec.nodes, key = lambda y: y.src_order)
-  def walk(sec, ofile=None):
-    if sec.level > 0:
-      if sec.level <= section_files_depth:
-        opath = odir.joinpath(section_to_path(sec))
-        if not opath.parent.exists():
-          opath.parent.mkdir(parents=True)
-        ofile = opath.open('wt')
-        print('writing', opath, '...')
-      ofile.write(section_out(sec))
-      for x in sorted_nodes(sec):
-        if isinstance(x, IntrinsicGroup):
-          ofile.write(intr_out(x))
-        elif hasattr(x, 'docs') and x.docs:
-          print('ignoring docs on', x)
-    for ssec in sorted_subsections(sec):
-      ofile = walk(ssec, ofile)
-    return ofile
-  walk(root_sec)
+  class Walker:
+    def __init__(self, root_sec):
+      self.walk(root_sec)
+    def set_opath(self, opath):
+      self.opath = opath
+      if not opath.parent.exists():
+        opath.parent.mkdir(parents=True)
+      self.ofile = opath.open('wt')
+      print('writing', opath, '...')
+      self.anchor_idxs = dict()
+    def next_anchor_idx(self, name):
+      n = self.anchor_idxs.get(name, 0) + 1
+      self.anchor_idxs[name] = n
+      return n
+    def next_anchor(self, name):
+      n = self.next_anchor_idx(name)
+      return name if n==1 else '{}-{}'.format(name, n)
+    def write(self, *args, **kwds):
+      self.ofile.write(*args, **kwds)
+    def walk(self, sec):
+      if sec.level > 0:
+        if sec.level <= section_files_depth:
+          self.set_opath(odir.joinpath(section_to_path(sec)))
+          self.fix_anchors(sec)
+        self.write(self.section_out(sec))
+        for x in sorted_nodes(sec):
+          if isinstance(x, IntrinsicGroup):
+            self.write(self.intr_out(x))
+          elif hasattr(x, 'docs') and x.docs:
+            print('ignoring docs on', x)
+      for ssec in sorted_subsections(sec):
+        self.walk(ssec)
+    def fix_anchors(self, sec):
+      sec.fixed_anchor = self.next_anchor(sec.anchor())
+      for ssec in sorted_subsections(sec):
+        self.fix_anchors(ssec)
+    def intr_out(self, x):
+      # group the intrinsics by their return values
+      gs = dict()
+      for intr in x.intrinsics:
+        r = template_subs(args.iret_tmpl, cats=[cat_out(r) for r in intr.returns]) if intr.returns else ''
+        if r in gs:
+          gs[r].append(intr)
+        else:
+          gs[r] = [intr]
+      gs = sorted(gs.items(), key = lambda z: min(intr.src_order for intr in z[1]))
+      # collate parameters
+      params = []
+      for ret, intrs in gs:
+        for intr in intrs:
+          for param in intr.params:
+            name = ident_out(param.name)
+            dflt = getattr(param, 'value_doc', '')
+            doc = getattr(param, 'doc_text', '')
+            hide = getattr(param, 'hide', False)
+            for i,p in enumerate(params):
+              if p[0] == name:
+                if dflt and p[1]: print('WARNING: ignoring a parameter default')
+                if doc and p[2]: doc = p[2] + ' ' + doc
+                hide = hide or p[3]
+                params[i] = (name, dflt, doc, hide)
+                break
+            else:
+              params.append((name, dflt, doc, hide))
+      # apply the template
+      return template_subs(args.intr_tmpl,
+        groups=[template_subs(args.igroup_tmpl, decls=[intr_decl_out(intr) for intr in intrs], ret=ret) for ret,intrs in gs],
+        doc=doc_out('\n\n'.join('\n'.join(d.text for d in intr.docs) for ret,intrs in gs for intr in intrs)),
+        params=[template_subs(args.param_tmpl, name=name, default=dflt, doc=doc) for name,dflt,doc,hide in params if not hide],
+        anchors=[self.next_anchor(a) for a in set(x.anchors())]
+      )
+    def section_out(self, x):
+      return template_subs(args.section_tmpl, level=x.level, name=x.name, doc=doc_out('\n'.join(doctext_out(d) for d in x.docs)), anchor=x.fixed_anchor)
+  Walker(root_sec)
