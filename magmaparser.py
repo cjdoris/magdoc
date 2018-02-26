@@ -318,6 +318,43 @@ class MagmaParser(Parser):
         self._gather(block0, sep0)
 
     @tatsumasu()
+    def _underscore_(self):  # noqa
+        self._token('_')
+        self.name_last_node('value')
+        self.ast._define(
+            ['value'],
+            []
+        )
+
+    @tatsumasu()
+    def _uident_(self):  # noqa
+        with self._choice():
+            with self._option():
+                self._ident_()
+            with self._option():
+                self._underscore_()
+            self._error('no available options')
+
+    @tatsumasu()
+    def _uidents_(self):  # noqa
+
+        def sep0():
+            with self._group():
+
+                def block1():
+                    self._sp_()
+                self._closure(block1)
+                self._token(',')
+
+                def block2():
+                    self._sp_()
+                self._closure(block2)
+
+        def block0():
+            self._uident_()
+        self._gather(block0, sep0)
+
+    @tatsumasu()
     def _block_comment_(self):  # noqa
         self._token('/*')
         self._cut()
@@ -535,7 +572,7 @@ class MagmaParser(Parser):
             self._sp_()
         self._closure(block0)
         self._cut()
-        self._idents_()
+        self._uidents_()
         self.name_last_node('lhs')
 
         def block2():
@@ -2733,6 +2770,15 @@ class MagmaSemantics(object):
         return ast
 
     def idents(self, ast):  # noqa
+        return ast
+
+    def underscore(self, ast):  # noqa
+        return ast
+
+    def uident(self, ast):  # noqa
+        return ast
+
+    def uidents(self, ast):  # noqa
         return ast
 
     def block_comment(self, ast):  # noqa

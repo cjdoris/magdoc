@@ -15,6 +15,9 @@ normal_ident = value:/\b(?!(_|adj|and|assert|assert2|assert3|assigned|break|by|c
 quoted_ident = "'" value:/[^']*/ "'" ;
 ident = normal_ident | quoted_ident ;
 idents = ( {sp} ',' {sp} ).{ ident };
+underscore = value:'_' ;
+uident = ident | underscore ;
+uidents = ( {sp} ',' {sp} ).{ uident } ;
 
 # space
 block_comment = '/*' ~ chars:{ !'*/' anychar } '*/' ;
@@ -38,7 +41,7 @@ angles = '<' ~ atoms:xatoms '>' ;
 braces = '{' ~ atoms:xatoms '}' ;
 brackets = '[' ~ atoms:xatoms ']' ;
 case = 'case' {sp} '<' ~ atoms:xatoms 'default' {sp} ':' {sp} default:expr {sp} '>' ;
-where = 'where' {sp} ~ lhs:idents {sp} ('is' | ':=');
+where = 'where' {sp} ~ lhs:uidents {sp} ('is' | ':=');
 select = 'select' {sp} ~ expr:expr {sp} 'else' ;
 
 # function expression (we also allow a name so that it can be used as a function statement too)
