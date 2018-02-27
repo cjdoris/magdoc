@@ -555,24 +555,6 @@ if __name__ == '__main__':
   #     else:
   #       assert False
 
-  # highlight argument and parameter names
-  re_protect = re.compile(r'(.*?)($|' + args.docprotect_rx + r')')
-  for x in xs:
-    if isinstance(x, IntrinsicStatement):
-      if x.args or x.params:
-        regex = args.docident_rx.replace(r'{name}', r'((?P<arg>' + r'|'.join(re.escape(a.name.code()) for a in x.args) + r')|(?P<param>' +  r'|'.join(re.escape(p.name.code()) for p in x.params) + r'))')
-        r = re.compile(regex)
-        def repl(m):
-          if m.group('arg'):
-            return template_subs(args.docarg_tmpl, name=m.group('arg'))
-          elif m.group('param'):
-            return template_subs(args.docparam_tmpl, name=m.group('param'))
-        def repl0(m):
-          return r.sub(repl, m.group(1)) + m.group(2)
-        for d in x.docs:
-          if isinstance(d, TextDocCommand):
-            d.text = re_protect.sub(repl0, d.text)
-
   # apply doc commands attached to nodes
   newxs = []
   cur_intrs = None
@@ -616,7 +598,7 @@ if __name__ == '__main__':
         assert isinstance(DocCommand)
         assert False
     # if an intrinsic has no doc yet, use its docstring
-    if isinstance(x, IntrinsicStatement) and not x.doc:
+    if isinstance(x, IntrinsicStatement) and not x.docs and not ditto:
       if isinstance(x.doc, IntrinsicDoc):
         x.docs.append(TextDocCommand(TEXT_CHAR + ''.join(c.code() for c in x.doc.chars)))
       elif isinstance(x.doc, IntrinsicDittoDoc):
@@ -638,6 +620,25 @@ if __name__ == '__main__':
       if ditto: print('WARNING: ignoring ditto')
       newxs.append(x)
   xs = newxs
+
+  # highlight argument and parameter names
+  re_protect = re.compile(r'(.*?)($|' + args.docprotect_rx + r')')
+  for x in xs:
+    if isinstance(x, IntrinsicGroup):
+      for i in x.intrinsics:
+        if i.args or i.params:
+          regex = args.docident_rx.replace(r'{name}', r'((?P<arg>' + r'|'.join(re.escape(a.name.code()) for a in i.args) + r')|(?P<param>' +  r'|'.join(re.escape(p.name.code()) for p in i.params) + r'))')
+          r = re.compile(regex)
+          def repl(m):
+            if m.group('arg'):
+              return template_subs(args.docarg_tmpl, name=m.group('arg'))
+            elif m.group('param'):
+              return template_subs(args.docparam_tmpl, name=m.group('param'))
+          def repl0(m):
+            return r.sub(repl, m.group(1)) + m.group(2)
+          for d in i.docs:
+            if isinstance(d, TextDocCommand):
+              d.text = re_protect.sub(repl0, d.text)
 
   # attach nodes to sections
   cur_sec = root_sec
