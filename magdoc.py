@@ -165,6 +165,24 @@ class SetCategory(Category):
   def anchor(self):
     return 'set' + ('' if isinstance(self.cat, AnyCategory) else '-'+self.cat.anchor())
 
+class IndexedSetCategory(Category):
+  def __init__(self, ast):
+    super().__init__(ast)
+    self.cat = tr_category(ast.cat)
+  def code(self):
+    return '{{@{cat}@}}'.format(cat=(self.cat.code()) if self.cat else '')
+  def anchor(self):
+    return 'iset' + ('' if isinstance(self.cat, AnyCategory) else '-'+self.cat.anchor())
+
+class MultisetCategory(Category):
+  def __init__(self, ast):
+    super().__init__(ast)
+    self.cat = tr_category(ast.cat)
+  def code(self):
+    return '{{*{cat}*}}'.format(cat=(self.cat.code()) if self.cat else '')
+  def anchor(self):
+    return 'mset' + ('' if isinstance(self.cat, AnyCategory) else '-'+self.cat.anchor())
+
 class SequenceCategory(Category):
   def __init__(self, ast):
     super().__init__(ast)
@@ -330,6 +348,10 @@ def tr_category(x):
     return SequenceCategory(x)
   elif x.type == 'set':
     return SetCategory(x)
+  elif x.type == 'iset':
+    return IndexedSetCategory(x)
+  elif x.type == 'mset':
+    return MultisetCategory(x)
   elif x.type == 'ident':
     return IdentCategory(x)
   else:
@@ -344,6 +366,10 @@ def tr_scategory(x):
     return SequenceCategory(x)
   elif x.type == 'set':
     return SetCategory(x)
+  elif x.type == 'iset':
+    return IndexedSetCategory(x)
+  elif x.type == 'mset':
+    return MultisetCategory(x)
   elif x.type == 'ident':
     return IdentCategory(x)
   else:
@@ -444,6 +470,8 @@ if __name__ == '__main__':
   group.add_argument('--iret-tmpl', metavar='TMPL', default='> -> {cats:~, }\n> {{:.ret}}\n', help='intrinsic return types (cats)')
   group.add_argument('--anycat-tmpl', metavar='TMPL', default='Any', help='Any type')
   group.add_argument('--setcat-tmpl', metavar='TMPL', default='{{{cat}}}', help='SetEnum type (cat)')
+  group.add_argument('--isetcat-tmpl', metavar='TMPL', default='{{@{cat}@}}', help='SetIndx type (cat)')
+  group.add_argument('--msetcat-tmpl', metavar='TMPL', default='{{*{cat}*}}', help='SetMulti type (cat)')
   group.add_argument('--seqcat-tmpl', metavar='TMPL', default='[{cat}]', help='SeqEnum type (cat)')
   group.add_argument('--cat-tmpl', metavar='TMPL', default='*{name}*{cats:?[}{cats:~, }{cats:?]}', help='normal types (name, cat)')
   group.add_argument('--section-tmpl', metavar='TMPL', default='{level:*#} {name}\n{{:#{anchor}}}\n\n{doc}', help='sections (level, name, anchor)')
@@ -467,20 +495,23 @@ if __name__ == '__main__':
   parser = MagmaParser()
   xs = []
   for filename in args.filenames:
-    path = Path(filename)
-    print('parsing', path, '...')
-    code = path.open().read()
-    if path.suffix in MAGMA_EXTNS:
-      asts = parser.parse(code)
-      for ast in asts:
-        x = tr_statement(ast)
-        x.src_filename = filename
-        xs.append(x)
-    elif path.suffix in MARKDOWN_EXTNS:
-      for line in path.open():
-        xs.append(tr_doc_command(line))
+    if filename.startswith('//'+DOC_CHAR):
+      xs.append(tr_doc_command(filename[3:]))
     else:
-      ValueError(path, 'unknown extension')
+      path = Path(filename)
+      print('parsing', path, '...')
+      code = path.open().read()
+      if path.suffix in MAGMA_EXTNS:
+        asts = parser.parse(code)
+        for ast in asts:
+          x = tr_statement(ast)
+          x.src_filename = filename
+          xs.append(x)
+      elif path.suffix in MARKDOWN_EXTNS:
+        for line in path.open():
+          xs.append(tr_doc_command(line))
+      else:
+        ValueError(path, 'unknown extension')
 
   # we now transform the nodes in various ways
   print('transforming ...')
@@ -669,6 +700,10 @@ if __name__ == '__main__':
       return template_subs(args.setcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
     elif isinstance(x, SequenceCategory):
       return template_subs(args.seqcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
+    elif isinstance(x, IndexedSetCategory):
+      return template_subs(args.isetcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
+    elif isinstance(x, MultisetCategory):
+      return template_subs(args.msetcat_tmpl, cat=cat_out(x.cat, can_hide_any=True))
     elif isinstance(x, IdentCategory):
       return template_subs(args.cat_tmpl, name=out_encode(x.name.code()), cats=[cat_out(c) for c in x.cats] if x.cats else [])
     else:

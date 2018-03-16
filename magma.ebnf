@@ -40,6 +40,8 @@ parens = '(' ~ atoms:xatoms ')' ;
 angles = '<' ~ atoms:xatoms '>' ;
 braces = '{' ~ atoms:xatoms '}' ;
 brackets = '[' ~ atoms:xatoms ']' ;
+ibraces = '{@' ~ atoms:xatoms '@}' ;
+mbraces = '{*' ~ atoms:xatoms '*}' ;
 case = 'case' {sp} '<' ~ atoms:xatoms 'default' {sp} ':' {sp} default:expr {sp} '>' ;
 where = 'where' {sp} ~ lhs:uidents {sp} ('is' | ':=');
 select = 'select' {sp} ~ expr:expr {sp} 'else' ;
@@ -55,9 +57,9 @@ procedure_args = ({sp} ',' {sp}).{ procedure_arg } ;
 procedure = 'procedure' {sp} ~ [ name:ident {sp} ] '(' {sp} ~ args:procedure_args {sp} [ ':' {sp} ~ params:params {sp} ] ')' {sp} ~ body:stmts {sp} 'end' {sp} ~ 'procedure' {sp} ;
 
 # expressions
-operator = '->' | '+' | '&+' | '-' | '*' | '&*' | !'//' !'/*' '/' | '^' | '.' | '``' | '`' | '@@' | '@' | '#' | '!' | 'cat' | '&cat' | 'div' | 'mod' | 'join' | '&join' | 'meet' | '&meet' | 'diff' | 'sdiff' | 'eq' | 'ne' | 'le' | 'lt' | 'ge' | 'gt' | 'not' | 'or' | 'and' | 'in' | 'notin' | 'subset' | 'notsubset' | 'adj' | 'notadj' | 'assigned' | 'eval' | 'forall' | 'exists' | 'random' | 'rep' | 'cmpeq' | 'cmpne' ;
+operator = '->' | '+' | '&+' | '-' | !'*}' '*' | '&*' | !'//' !'/*' '/' | '^' | '.' | '``' | '`' | '@@' | !'@}' '@' | '#' | '!' | 'cat' | '&cat' | 'div' | 'mod' | 'join' | '&join' | 'meet' | '&meet' | 'diff' | 'sdiff' | 'eq' | 'ne' | 'le' | 'lt' | 'ge' | 'gt' | 'not' | 'or' | 'and' | 'in' | 'notin' | 'subset' | 'notsubset' | 'adj' | 'notadj' | 'assigned' | 'eval' | 'forall' | 'exists' | 'random' | 'rep' | 'cmpeq' | 'cmpne' ;
 xsymbol = ':->' | ':=' | ',' | '|' | ':' | '~' | 'by' ;
-atom = ident | '_' | string | parens | angles | braces | brackets | integer | operator | bool | function | procedure | where | select | case | >sp ;
+atom = ident | '_' | string | parens | angles | ibraces | mbraces | braces | brackets | integer | operator | bool | function | procedure | where | select | case | >sp ;
 xatom = xsymbol | >atom ;
 xatoms = { xatom } ;
 expr = { atom } ;
@@ -67,16 +69,20 @@ exprs = ( {sp} ',' {sp}).{ expr } ;
 any_cat = ('.' | 'Any') type:`any` ;
 seq_cat = ('[' {sp} [ cat:cat {sp} ] ']' | 'SeqEnum' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`seq` ;
 set_cat = ('{' {sp} [ cat:cat {sp} ] '}' | 'SetEnum' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`set` ;
+iset_cat = ('{@' {sp} [ cat:cat {sp} ] '@}' | 'SetIndx' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`iset` ;
+mset_cat = ('{*' {sp} [ cat:cat {sp} ] '*}' | 'SetMulti' {sp} '[' {sp} [ cat:cat {sp} ] ']') type:`mset` ;
 ident_cat = name:ident [ {sp} '[' cats:cats ']' ] type:`ident` ;
-cat = any_cat | seq_cat | set_cat | ident_cat ;
+cat = any_cat | seq_cat | iset_cat | mset_cat | set_cat | ident_cat ;
 cats = ( {sp} ',' {sp} ).{ cat };
 
 # simple categories (as in return values)
 any_scat = any_cat ;
 seq_scat = ( '[' {sp} ']' | 'SeqEnum' ) type:`seq` ;
 set_scat = ( '{' {sp} '}' | 'SetEnum' ) type:`set` ;
+iset_scat = ( '{@' {sp} '@}' | 'SetIndx' ) type:`iset` ;
+mset_scat = ( '{*' {sp} '*}' | 'SetMulti' ) type:`mset` ;
 ident_scat = name:ident type:`ident` ;
-scat = any_scat | seq_scat | set_scat | ident_scat ;
+scat = any_scat | seq_scat | iset_scat | mset_scat | set_scat | ident_scat ;
 scats = ( {sp} ',' {sp} ).{ scat };
 
 # intrinsic statement

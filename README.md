@@ -20,6 +20,8 @@ The source files are either:
 
 For MAGMA files, line comments beginning `///` (but not `////`) are special *doc comments* with meanings described below. Markdown files are interpreted as if each line is a doc comment (without the leading `///`).
 
+If a filename starts with `///`, it is interpreted as a single doc comment; this is useful to put files into sections without editing the source.
+
 - `/// TEXT` is markdown formatted documentation (note the space before `TEXT`). If they appear immediately after a sectioning command (with no intervening space) then they document the section; otherwise they document the next definition (usually an intrinsic).
 - `///# NAME` define sections. Additional `#`s give deeper sections.
 - `///hide` hides the thing to which it is attached.

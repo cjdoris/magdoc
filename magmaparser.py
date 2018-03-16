@@ -532,6 +532,30 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _ibraces_(self):  # noqa
+        self._token('{@')
+        self._cut()
+        self._xatoms_()
+        self.name_last_node('atoms')
+        self._token('@}')
+        self.ast._define(
+            ['atoms'],
+            []
+        )
+
+    @tatsumasu()
+    def _mbraces_(self):  # noqa
+        self._token('{*')
+        self._cut()
+        self._xatoms_()
+        self.name_last_node('atoms')
+        self._token('*}')
+        self.ast._define(
+            ['atoms'],
+            []
+        )
+
+    @tatsumasu()
     def _case_(self):  # noqa
         self._token('case')
 
@@ -817,6 +841,8 @@ class MagmaParser(Parser):
             with self._option():
                 self._token('-')
             with self._option():
+                with self._ifnot():
+                    self._token('*}')
                 self._token('*')
             with self._option():
                 self._token('&*')
@@ -837,6 +863,8 @@ class MagmaParser(Parser):
             with self._option():
                 self._token('@@')
             with self._option():
+                with self._ifnot():
+                    self._token('@}')
                 self._token('@')
             with self._option():
                 self._token('#')
@@ -943,6 +971,10 @@ class MagmaParser(Parser):
             with self._option():
                 self._angles_()
             with self._option():
+                self._ibraces_()
+            with self._option():
+                self._mbraces_()
+            with self._option():
                 self._braces_()
             with self._option():
                 self._brackets_()
@@ -990,6 +1022,10 @@ class MagmaParser(Parser):
                         self._parens_()
                     with self._option():
                         self._angles_()
+                    with self._option():
+                        self._ibraces_()
+                    with self._option():
+                        self._mbraces_()
                     with self._option():
                         self._braces_()
                     with self._option():
@@ -1162,6 +1198,96 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _iset_cat_(self):  # noqa
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._token('{@')
+
+                    def block0():
+                        self._sp_()
+                    self._closure(block0)
+                    with self._optional():
+                        self._cat_()
+                        self.name_last_node('cat')
+
+                        def block2():
+                            self._sp_()
+                        self._closure(block2)
+                    self._token('@}')
+                with self._option():
+                    self._token('SetIndx')
+
+                    def block3():
+                        self._sp_()
+                    self._closure(block3)
+                    self._token('[')
+
+                    def block4():
+                        self._sp_()
+                    self._closure(block4)
+                    with self._optional():
+                        self._cat_()
+                        self.name_last_node('cat')
+
+                        def block6():
+                            self._sp_()
+                        self._closure(block6)
+                    self._token(']')
+                self._error('no available options')
+        self._constant('iset')
+        self.name_last_node('type')
+        self.ast._define(
+            ['cat', 'type'],
+            []
+        )
+
+    @tatsumasu()
+    def _mset_cat_(self):  # noqa
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._token('{*')
+
+                    def block0():
+                        self._sp_()
+                    self._closure(block0)
+                    with self._optional():
+                        self._cat_()
+                        self.name_last_node('cat')
+
+                        def block2():
+                            self._sp_()
+                        self._closure(block2)
+                    self._token('*}')
+                with self._option():
+                    self._token('SetMulti')
+
+                    def block3():
+                        self._sp_()
+                    self._closure(block3)
+                    self._token('[')
+
+                    def block4():
+                        self._sp_()
+                    self._closure(block4)
+                    with self._optional():
+                        self._cat_()
+                        self.name_last_node('cat')
+
+                        def block6():
+                            self._sp_()
+                        self._closure(block6)
+                    self._token(']')
+                self._error('no available options')
+        self._constant('mset')
+        self.name_last_node('type')
+        self.ast._define(
+            ['cat', 'type'],
+            []
+        )
+
+    @tatsumasu()
     def _ident_cat_(self):  # noqa
         self._ident_()
         self.name_last_node('name')
@@ -1188,6 +1314,10 @@ class MagmaParser(Parser):
                 self._any_cat_()
             with self._option():
                 self._seq_cat_()
+            with self._option():
+                self._iset_cat_()
+            with self._option():
+                self._mset_cat_()
             with self._option():
                 self._set_cat_()
             with self._option():
@@ -1260,6 +1390,48 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _iset_scat_(self):  # noqa
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._token('{@')
+
+                    def block0():
+                        self._sp_()
+                    self._closure(block0)
+                    self._token('@}')
+                with self._option():
+                    self._token('SetIndx')
+                self._error('no available options')
+        self._constant('iset')
+        self.name_last_node('type')
+        self.ast._define(
+            ['type'],
+            []
+        )
+
+    @tatsumasu()
+    def _mset_scat_(self):  # noqa
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._token('{*')
+
+                    def block0():
+                        self._sp_()
+                    self._closure(block0)
+                    self._token('*}')
+                with self._option():
+                    self._token('SetMulti')
+                self._error('no available options')
+        self._constant('mset')
+        self.name_last_node('type')
+        self.ast._define(
+            ['type'],
+            []
+        )
+
+    @tatsumasu()
     def _ident_scat_(self):  # noqa
         self._ident_()
         self.name_last_node('name')
@@ -1277,6 +1449,10 @@ class MagmaParser(Parser):
                 self._any_scat_()
             with self._option():
                 self._seq_scat_()
+            with self._option():
+                self._iset_scat_()
+            with self._option():
+                self._mset_scat_()
             with self._option():
                 self._set_scat_()
             with self._option():
@@ -2820,6 +2996,12 @@ class MagmaSemantics(object):
     def brackets(self, ast):  # noqa
         return ast
 
+    def ibraces(self, ast):  # noqa
+        return ast
+
+    def mbraces(self, ast):  # noqa
+        return ast
+
     def case(self, ast):  # noqa
         return ast
 
@@ -2877,6 +3059,12 @@ class MagmaSemantics(object):
     def set_cat(self, ast):  # noqa
         return ast
 
+    def iset_cat(self, ast):  # noqa
+        return ast
+
+    def mset_cat(self, ast):  # noqa
+        return ast
+
     def ident_cat(self, ast):  # noqa
         return ast
 
@@ -2893,6 +3081,12 @@ class MagmaSemantics(object):
         return ast
 
     def set_scat(self, ast):  # noqa
+        return ast
+
+    def iset_scat(self, ast):  # noqa
+        return ast
+
+    def mset_scat(self, ast):  # noqa
         return ast
 
     def ident_scat(self, ast):  # noqa
