@@ -1776,6 +1776,46 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _assert2_stmt_(self):  # noqa
+        self._token('assert2')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._expr_()
+        self.name_last_node('pred')
+
+        def block2():
+            self._sp_()
+        self._closure(block2)
+        self._token(';')
+        self.ast._define(
+            ['pred'],
+            []
+        )
+
+    @tatsumasu()
+    def _assert3_stmt_(self):  # noqa
+        self._token('assert3')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._expr_()
+        self.name_last_node('pred')
+
+        def block2():
+            self._sp_()
+        self._closure(block2)
+        self._token(';')
+        self.ast._define(
+            ['pred'],
+            []
+        )
+
+    @tatsumasu()
     def _return_stmt_(self):  # noqa
         self._token('return')
 
@@ -2885,6 +2925,10 @@ class MagmaParser(Parser):
             with self._option():
                 self._continue_stmt_()
             with self._option():
+                self._assert3_stmt_()
+            with self._option():
+                self._assert2_stmt_()
+            with self._option():
                 self._assert_stmt_()
             with self._option():
                 self._require_stmt_()
@@ -3126,6 +3170,12 @@ class MagmaSemantics(object):
         return ast
 
     def assert_stmt(self, ast):  # noqa
+        return ast
+
+    def assert2_stmt(self, ast):  # noqa
+        return ast
+
+    def assert3_stmt(self, ast):  # noqa
         return ast
 
     def return_stmt(self, ast):  # noqa

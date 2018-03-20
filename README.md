@@ -9,7 +9,7 @@ Install the Tatsu package (e.g. `pip install tatsu`) used for parsing.
 Run the Python 3 script `magdoc.py` with the source files as arguments. It will output some files in markdown format containing documentation. Example:
 
 ```
-$ python3 magdoc.py source.mag another_source.mag
+$ python3 magdoc.py -o output_dir source.mag another_source.mag
 ```
 
 ## Inputs

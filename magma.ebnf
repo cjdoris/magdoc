@@ -98,6 +98,8 @@ require_stmt = 'require' {sp} ~ pred:expr {sp} ':' {sp} msg:exprs {sp} ';' ;
 requirege_stmt = 'requirege' {sp} ~ exprs:exprs {sp} ';' ;
 requirerange_stmt = 'requirerange' {sp} ~ exprs:exprs {sp} ';' ;
 assert_stmt = 'assert' {sp} ~ pred:expr {sp} ';' ;
+assert2_stmt = 'assert2' {sp} ~ pred:expr {sp} ';' ;
+assert3_stmt = 'assert3' {sp} ~ pred:expr {sp} ';' ;
 return_stmt = 'return' {sp} ~ [ values:exprs {sp} ] ';' ;
 if_end = 'end' {sp} ~ 'if' {sp} ';' ;
 if_next = >if_end | elif:if_elif next:`elif` | else:if_else next:`else` ;
@@ -133,5 +135,5 @@ freeze_stmt = 'freeze' {sp} ~ ';' what:`freeze` ;
 assign = ':=' ;
 assign_stmt = lhs:exprs {sp} assign:assign {sp} ~ rhs:expr {sp} ';' ;
 
-stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | try_stmt | freeze_stmt | assign_stmt | expr_stmt ;
+stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert3_stmt | assert2_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | try_stmt | freeze_stmt | assign_stmt | expr_stmt ;
 stmts = { stmt } ;
