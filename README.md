@@ -27,6 +27,7 @@ If a filename starts with `///`, it is interpreted as a single doc comment; this
 - `///hide` hides the thing to which it is attached.
 - `///hide-all` hides everything until `///hide-none` is encountered.
 - `///ditto` groups this intrinsic with the previous one; typically they have similar inputs and the same return types; when the return types are the same, they are merged in the documentation.
+- `///priority N` sets the priority of the thing to which it is attached to the number `N`. Things with higher priority appear first, and the default priority is 0.
 - `///toc` inserts a simple table of contents of the current section.
 - `///param NAME:=DEFAULT TEXT` documents the parameter NAME. `:=DEFAULT` and `TEXT` are both optional. `DEFAULT` must not contain any spaces.
 - `///label NAME` after a section command associates a label to the section.

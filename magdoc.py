@@ -301,6 +301,14 @@ class SectionRefDocCommand(DocCommand):
     assert words[0] == 'sec'
     self.name = words[1]
 
+class PriorityDocCommand(DocCommand):
+  def __init__(self, cmd):
+    super().__init__(cmd)
+    words = cmd.split()
+    assert len(words) == 2
+    assert words[0] == 'priority'
+    self.priority = int(words[1])
+
 class Expression(Node):
   pass
 
@@ -407,6 +415,8 @@ def tr_doc_command(cmd):
     return HideNoneDocCommand(cmd)
   elif cmd.startswith('sec '):
     return SectionRefDocCommand(cmd)
+  elif cmd.startswith('priority '):
+    return PriorityDocCommand(cmd)
   else:
     raise ValueError('unknown doc command', cmd)
 
@@ -440,6 +450,15 @@ class Section:
       yield from self.parent.parents()
   def anchor(self):
     return ''.join(c if c in 'abcdefghijklmnopqrstuvwxyz-_0123456789' else '-' if c in ' ' else '' for c in self.name.lower())
+  def prioritize_nodes(self, key):
+    self.nodes = sorted(self.nodes, key=key)
+  def prioritize(self, key, recurse=True, nodes=True):
+    self.children = sorted(self.children, key=key)
+    if nodes:
+      self.prioritize_nodes(key)
+    if recurse:
+      for x in self.children:
+        x.prioritize(key, nodes=nodes)
 
 class IntrinsicGroup:
   def __init__(self):
@@ -625,6 +644,8 @@ if __name__ == '__main__':
             print('WARNING: ignoring param doc command: invalid parameter name')
         else:
           print('WARNING: ignoring param doc command: not an intrinsic')
+      elif isinstance(d, PriorityDocCommand):
+        x.priority = d.priority
       else:
         assert isinstance(DocCommand)
         assert False
@@ -647,6 +668,12 @@ if __name__ == '__main__':
         cur_intrs.src_order = x.src_order
         newxs.append(cur_intrs)
       cur_intrs.intrinsics.append(x)
+      # the priority of an intrinsic group is the maximum assigned priority of its intrinsics
+      if hasattr(cur_intrs, 'priority'):
+        if hasattr(x, 'priority'):
+          cur_intrs.priority = max(cur_intrs.priority, x.priority)
+      elif hasattr(x, 'priority'):
+        cur_intrs.priority = x.priority
     else:
       if ditto: print('WARNING: ignoring ditto')
       newxs.append(x)
@@ -678,6 +705,9 @@ if __name__ == '__main__':
       cur_sec = x
     else:
       cur_sec.nodes.append(x)
+
+  # order the sections and nodes, first by priority, then by source order
+  root_sec.prioritize(lambda x: (-getattr(x,'priority',0), x.src_order))
 
   # output
   section_files_depth = 1
@@ -732,10 +762,6 @@ if __name__ == '__main__':
       return toc_out(x)
     else:
       return x.text
-  def sorted_subsections(sec):
-    return sorted(sec.children, key = lambda x: x.src_order)
-  def sorted_nodes(sec):
-    return sorted(sec.nodes, key = lambda y: y.src_order)
   class Walker:
     def __init__(self, root_sec):
       self.walk(root_sec)
@@ -761,16 +787,16 @@ if __name__ == '__main__':
           self.set_opath(odir.joinpath(section_to_path(sec)))
           self.fix_anchors(sec)
         self.write(self.section_out(sec))
-        for x in sorted_nodes(sec):
+        for x in sec.nodes:
           if isinstance(x, IntrinsicGroup):
             self.write(self.intr_out(x))
           elif hasattr(x, 'docs') and x.docs:
             print('ignoring docs on', x)
-      for ssec in sorted_subsections(sec):
+      for ssec in sec.children:
         self.walk(ssec)
     def fix_anchors(self, sec):
       sec.fixed_anchor = self.next_anchor(sec.anchor())
-      for ssec in sorted_subsections(sec):
+      for ssec in sec.children:
         self.fix_anchors(ssec)
     def intr_out(self, x):
       # group the intrinsics by their return values
