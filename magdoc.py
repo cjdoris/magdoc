@@ -819,8 +819,14 @@ if __name__ == '__main__':
             hide = getattr(param, 'hide', False)
             for i,p in enumerate(params):
               if p[0] == name:
-                if dflt and p[1]: print('WARNING: ignoring a parameter default')
-                if doc and p[2]: doc = p[2] + ' ' + doc
+                if dflt and p[1]:
+                  print('WARNING: ignoring a parameter default')
+                else:
+                  dflt = dflt or p[1]
+                if doc and p[2]:
+                  doc = p[2] + ' ' + doc
+                else:
+                  doc = doc or p[2]
                 hide = hide or p[3]
                 params[i] = (name, dflt, doc, hide)
                 break
