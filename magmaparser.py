@@ -2863,6 +2863,56 @@ class MagmaParser(Parser):
         )
 
     @tatsumasu()
+    def _time_stmt_(self):  # noqa
+        self._token('time')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._stmt_()
+        self.name_last_node('body')
+        self.ast._define(
+            ['body'],
+            []
+        )
+
+    @tatsumasu()
+    def _vtime_stmt_(self):  # noqa
+        self._token('vtime')
+
+        def block0():
+            self._sp_()
+        self._closure(block0)
+        self._cut()
+        self._ident_()
+        self.name_last_node('name')
+
+        def block2():
+            self._sp_()
+        self._closure(block2)
+        with self._optional():
+            self._token(',')
+
+            def block3():
+                self._sp_()
+            self._closure(block3)
+            self._cut()
+            self._expr_()
+            self.name_last_node('level')
+
+            def block5():
+                self._sp_()
+            self._closure(block5)
+        self._token(':')
+        self._stmt_()
+        self.name_last_node('body')
+        self.ast._define(
+            ['body', 'level', 'name'],
+            []
+        )
+
+    @tatsumasu()
     def _assign_(self):  # noqa
         self._token(':=')
 
@@ -2956,6 +3006,10 @@ class MagmaParser(Parser):
                 self._try_stmt_()
             with self._option():
                 self._freeze_stmt_()
+            with self._option():
+                self._time_stmt_()
+            with self._option():
+                self._vtime_stmt_()
             with self._option():
                 self._assign_stmt_()
             with self._option():
@@ -3269,6 +3323,12 @@ class MagmaSemantics(object):
         return ast
 
     def freeze_stmt(self, ast):  # noqa
+        return ast
+
+    def time_stmt(self, ast):  # noqa
+        return ast
+
+    def vtime_stmt(self, ast):  # noqa
         return ast
 
     def assign(self, ast):  # noqa

@@ -131,9 +131,11 @@ vprint_stmt = 'vprint' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':'
 vprintf_stmt = 'vprintf' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' values:exprs {sp} ';' ;
 try_stmt = 'try' {sp} ~ tbody:stmts {sp} 'catch' {sp} ~ errval:ident {sp} ~ cbody:stmts {sp} 'end' {sp} ~ 'try' {sp} ';' ;
 freeze_stmt = 'freeze' {sp} ~ ';' what:`freeze` ;
+time_stmt = 'time' {sp} ~ body:stmt ;
+vtime_stmt = 'vtime' {sp} ~ name:ident {sp} [ ',' {sp} ~ level:expr {sp} ] ':' body:stmt ;
 
 assign = ':=' ;
 assign_stmt = lhs:exprs {sp} assign:assign {sp} ~ rhs:expr {sp} ';' ;
 
-stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert3_stmt | assert2_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | try_stmt | freeze_stmt | assign_stmt | expr_stmt ;
+stmt = sp | intrinsic_stmt | print_stmt | printf_stmt | error_if_stmt | error_stmt | for_stmt | while_stmt | repeat_stmt | if_stmt | return_stmt  | delete_stmt | break_stmt | continue_stmt | assert3_stmt | assert2_stmt | assert_stmt | require_stmt | requirege_stmt | requirerange_stmt | import_stmt | declare_type_stmt | declare_attributes_stmt | declare_verbose_stmt | case_stmt | forward_stmt | vprint_stmt | vprintf_stmt | try_stmt | freeze_stmt | time_stmt | vtime_stmt | assign_stmt | expr_stmt ;
 stmts = { stmt } ;
