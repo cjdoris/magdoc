@@ -699,12 +699,9 @@ if __name__ == '__main__':
               d.text = re_protect.sub(repl0, d.text)
 
   # attach nodes to sections
-  cur_sec = root_sec
   for x in xs:
-    if isinstance(x, Section):
-      cur_sec = x
-    else:
-      cur_sec.nodes.append(x)
+    if not isinstance(x, Section):
+      x.section.nodes.append(x)
 
   # order the sections and nodes, first by priority, then by source order
   root_sec.prioritize(lambda x: (-getattr(x,'priority',0), x.src_order))
